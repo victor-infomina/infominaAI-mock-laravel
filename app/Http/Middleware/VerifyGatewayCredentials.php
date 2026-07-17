@@ -10,10 +10,15 @@ class VerifyGatewayCredentials
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $key = $request->header('x-Gateway-APIKey');
-        $secret = $request->header('x-Gateway-APISecret');
+        $configuredKey = config('ssm_mock.api_key');
+        $configuredSecret = config('ssm_mock.api_secret');
 
-        if ($key !== config('ssm_mock.api_key') || $secret !== config('ssm_mock.api_secret')) {
+        if (
+            ! is_string($configuredKey) || $configuredKey === ''
+            || ! is_string($configuredSecret) || $configuredSecret === ''
+            || $request->header('x-Gateway-APIKey') !== $configuredKey
+            || $request->header('x-Gateway-APISecret') !== $configuredSecret
+        ) {
             return response()->json(['error' => 'unauthorized'], 401);
         }
 

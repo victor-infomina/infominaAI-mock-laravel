@@ -50,4 +50,15 @@ class VerifyGatewayCredentialsTest extends TestCase
 
         $this->assertSame(401, $response->getStatusCode());
     }
+
+    public function test_rejects_every_request_when_server_credentials_are_not_configured(): void
+    {
+        config(['ssm_mock.api_key' => null, 'ssm_mock.api_secret' => null]);
+
+        $request = Request::create('/whatever', 'POST');
+
+        $response = (new VerifyGatewayCredentials())->handle($request, $this->nextReturningOk());
+
+        $this->assertSame(401, $response->getStatusCode());
+    }
 }
