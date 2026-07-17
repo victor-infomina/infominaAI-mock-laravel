@@ -60,6 +60,25 @@ class SsmMockController extends Controller
         return $this->profileResponse($request, 'llp', 'llp-profile.json', 'getLlpCurrentProfile');
     }
 
+    public function orderDocument(Request $request): JsonResponse
+    {
+        $requestRefNo = (string) $request->input('requestRefNo');
+        $case = $this->cases->find($requestRefNo);
+
+        if ($case === null || ! is_file($case['path'].'/report.pdf')) {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        return response()->json([
+            'getOrderDocument' => [
+                'data' => [
+                    'status' => 'Completed',
+                    'documentUrl' => route('ssm-mock.report', ['caseKey' => $case['key']]),
+                ],
+            ],
+        ]);
+    }
+
     private function profileResponse(Request $request, string $entityType, string $fixtureFile, string $envelopeKey): JsonResponse
     {
         $regNo = (string) $request->input('regNo');
