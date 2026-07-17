@@ -44,4 +44,40 @@ class SsmMockController extends Controller
             ],
         ]);
     }
+
+    public function companyProfile(Request $request): JsonResponse
+    {
+        return $this->profileResponse($request, 'company', 'company-profile.json', 'getCompProfile');
+    }
+
+    public function businessProfile(Request $request): JsonResponse
+    {
+        return $this->profileResponse($request, 'business', 'business-profile.json', 'getBizProfile');
+    }
+
+    public function llpProfile(Request $request): JsonResponse
+    {
+        return $this->profileResponse($request, 'llp', 'llp-profile.json', 'getLlpCurrentProfile');
+    }
+
+    private function profileResponse(Request $request, string $entityType, string $fixtureFile, string $envelopeKey): JsonResponse
+    {
+        $regNo = (string) $request->input('regNo');
+        $case = $this->cases->findByRegNo($regNo, $entityType);
+
+        if ($case === null) {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        $fixturePath = $case['path'].'/'.$fixtureFile;
+
+        if (! is_file($fixturePath)) {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        $data = json_decode(file_get_contents($fixturePath), true);
+        $data[$envelopeKey]['requestRefNo'] = $case['key'];
+
+        return response()->json($data);
+    }
 }
