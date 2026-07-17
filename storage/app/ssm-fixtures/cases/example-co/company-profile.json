@@ -1,0 +1,11 @@
+{
+    "getCompProfile": {
+        "errorMsg": null,
+        "requestRefNo": "PLACEHOLDER-WILL-BE-REWRITTEN",
+        "rocCompanyInfo": {
+            "companyName": "Example Company Sdn Bhd",
+            "companyNo": "000000-X",
+            "companyStatus": "Existing"
+        }
+    }
+}

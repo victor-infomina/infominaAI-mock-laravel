@@ -1,4 +1,6 @@
 *
 !private/
 !public/
+!ssm-fixtures/
+!ssm-fixtures/**
 !.gitignore
