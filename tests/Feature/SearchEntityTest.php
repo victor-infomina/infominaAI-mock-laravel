@@ -43,7 +43,7 @@ class SearchEntityTest extends TestCase
             ->postJson('/get-search-entity', ['regNo' => '123456-A', 'entityType' => 'company']);
 
         $response->assertOk();
-        $response->assertJsonPath('getSearchEntity.searchEntity.0.companyName', 'Acme Sdn Bhd');
+        $response->assertJsonPath('getSearchEntity.searchEntity.data.0.companyName', 'Acme Sdn Bhd');
     }
 
     public function test_finds_case_by_partial_name(): void
@@ -52,7 +52,7 @@ class SearchEntityTest extends TestCase
             ->postJson('/get-search-entity', ['name' => 'acme', 'entityType' => 'company']);
 
         $response->assertOk();
-        $response->assertJsonPath('getSearchEntity.searchEntity.0.companyNo', '123456-A');
+        $response->assertJsonPath('getSearchEntity.searchEntity.data.0.companyNo', '123456-A');
     }
 
     public function test_returns_404_when_no_case_matches(): void

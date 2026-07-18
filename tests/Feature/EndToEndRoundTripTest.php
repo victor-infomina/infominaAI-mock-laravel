@@ -29,7 +29,7 @@ class EndToEndRoundTripTest extends TestCase
         $search = $this->withHeaders($this->authHeaders())
             ->postJson('/get-search-entity', ['regNo' => '000000-X', 'entityType' => 'company']);
         $search->assertOk();
-        $search->assertJsonPath('getSearchEntity.searchEntity.0.companyName', 'Example Company Sdn Bhd');
+        $search->assertJsonPath('getSearchEntity.searchEntity.data.0.companyName', 'Example Company Sdn Bhd');
 
         $profile = $this->withHeaders($this->authHeaders())
             ->postJson('/v2/get-company-profile-document', ['regNo' => '000000-X']);
