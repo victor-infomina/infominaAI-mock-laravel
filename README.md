@@ -1,6 +1,6 @@
 # InfominaAI SSM Mock
 
-A Laravel mock of 5 SSM gateway endpoints, for pointing `infominaAI-BE`'s
+A Laravel mock of 7 SSM gateway endpoints, for pointing `infominaAI-BE`'s
 `SSM_API_URL` at during dev/staging instead of the real SSM API.
 
 ## Endpoints
