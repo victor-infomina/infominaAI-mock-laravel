@@ -63,6 +63,17 @@ class SsmCaseRepository
         return null;
     }
 
+    public function findByRegNoAny(string $regNo): ?array
+    {
+        foreach ($this->all() as $case) {
+            if (strcasecmp($case['meta']['regNo'] ?? '', $regNo) === 0) {
+                return $case;
+            }
+        }
+
+        return null;
+    }
+
     public function searchByName(string $name, string $entityType): array
     {
         $needle = strtolower($name);
@@ -73,5 +84,29 @@ class SsmCaseRepository
             return str_contains($companyName, $needle)
                 && strcasecmp($case['meta']['entityType'] ?? '', $entityType) === 0;
         }));
+    }
+
+    public function idamanDocuments(array $case): ?array
+    {
+        $listPath = $case['path'].'/idaman/list.json';
+
+        if (! is_file($listPath)) {
+            return null;
+        }
+
+        $documents = json_decode(file_get_contents($listPath), true);
+
+        return is_array($documents) ? $documents : null;
+    }
+
+    public function idamanDocumentFile(array $case, string $verId): ?string
+    {
+        if (! preg_match('/^[A-Za-z0-9_-]+$/', $verId)) {
+            return null;
+        }
+
+        $matches = glob($case['path'].'/idaman/'.$verId.'.*');
+
+        return $matches[0] ?? null;
     }
 }

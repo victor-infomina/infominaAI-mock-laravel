@@ -99,4 +99,74 @@ class SsmCaseRepositoryTest extends TestCase
 
         $this->assertCount(1, $repo->all());
     }
+
+    public function test_find_by_reg_no_any_matches_regardless_of_entity_type(): void
+    {
+        $this->makeCase('acme-co', ['regNo' => 'ABC123', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);
+
+        $repo = new SsmCaseRepository($this->fixturesPath);
+        $case = $repo->findByRegNoAny('abc123');
+
+        $this->assertNotNull($case);
+        $this->assertSame('acme-co', $case['key']);
+    }
+
+    public function test_find_by_reg_no_any_returns_null_when_no_case_matches(): void
+    {
+        $repo = new SsmCaseRepository($this->fixturesPath);
+
+        $this->assertNull($repo->findByRegNoAny('unknown'));
+    }
+
+    public function test_idaman_documents_returns_null_when_no_idaman_folder(): void
+    {
+        $this->makeCase('acme-co', ['regNo' => 'ABC123', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);
+        $repo = new SsmCaseRepository($this->fixturesPath);
+
+        $this->assertNull($repo->idamanDocuments($repo->find('acme-co')));
+    }
+
+    public function test_idaman_documents_returns_decoded_list_json(): void
+    {
+        $this->makeCase('acme-co', ['regNo' => 'ABC123', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);
+        $idamanDir = $this->fixturesPath.'/acme-co/idaman';
+        mkdir($idamanDir, 0777, true);
+        file_put_contents($idamanDir.'/list.json', json_encode([
+            ['verId' => 'V1', 'formType' => '557', 'dateFiler' => '2024-01-01'],
+        ]));
+
+        $repo = new SsmCaseRepository($this->fixturesPath);
+        $documents = $repo->idamanDocuments($repo->find('acme-co'));
+
+        $this->assertCount(1, $documents);
+        $this->assertSame('V1', $documents[0]['verId']);
+    }
+
+    public function test_idaman_document_file_returns_null_when_not_found(): void
+    {
+        $this->makeCase('acme-co', ['regNo' => 'ABC123', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);
+        $repo = new SsmCaseRepository($this->fixturesPath);
+
+        $this->assertNull($repo->idamanDocumentFile($repo->find('acme-co'), 'V1'));
+    }
+
+    public function test_idaman_document_file_returns_path_when_present(): void
+    {
+        $this->makeCase('acme-co', ['regNo' => 'ABC123', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);
+        $idamanDir = $this->fixturesPath.'/acme-co/idaman';
+        mkdir($idamanDir, 0777, true);
+        file_put_contents($idamanDir.'/V1.tiff', 'binary-content');
+
+        $repo = new SsmCaseRepository($this->fixturesPath);
+
+        $this->assertSame($idamanDir.'/V1.tiff', $repo->idamanDocumentFile($repo->find('acme-co'), 'V1'));
+    }
+
+    public function test_idaman_document_file_rejects_unsafe_ver_id(): void
+    {
+        $this->makeCase('acme-co', ['regNo' => 'ABC123', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);
+        $repo = new SsmCaseRepository($this->fixturesPath);
+
+        $this->assertNull($repo->idamanDocumentFile($repo->find('acme-co'), '../../etc/passwd'));
+    }
 }
