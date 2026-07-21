@@ -81,6 +81,25 @@ class SsmMockController extends Controller
         ]);
     }
 
+    public function imageList(Request $request): JsonResponse
+    {
+        $regNo = (string) $request->input('regNo');
+        $case = $this->cases->findByRegNoAny($regNo);
+        $documents = $case ? $this->cases->idamanDocuments($case) : null;
+
+        if ($documents === null) {
+            return response()->json(['getImageView' => ['errorMsg' => 'not found']]);
+        }
+
+        return response()->json([
+            'getImageView' => [
+                'documentInfos' => [
+                    'documentInfos' => $documents,
+                ],
+            ],
+        ]);
+    }
+
     private function profileResponse(Request $request, string $entityType, string $fixtureFile, string $envelopeKey): JsonResponse
     {
         $regNo = (string) $request->input('regNo');

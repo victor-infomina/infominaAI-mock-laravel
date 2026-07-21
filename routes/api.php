@@ -10,6 +10,7 @@ Route::middleware('verify.gateway')->group(function () {
     Route::post('/v2/get-bizprofile-document', [SsmMockController::class, 'businessProfile']);
     Route::post('/v2/get-llp-current-profile', [SsmMockController::class, 'llpProfile']);
     Route::post('/get-order-document', [SsmMockController::class, 'orderDocument']);
+    Route::post('/get-image-list', [SsmMockController::class, 'imageList']);
 });
 
 Route::get('/reports/{caseKey}.pdf', [ReportController::class, 'show'])
