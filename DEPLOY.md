@@ -7,8 +7,8 @@
 
 Requires `php`, `composer`, `zip`, `git`, `openssl` on your machine. It runs the
 test suite, vendors production dependencies, generates `APP_KEY` /
-`MOCK_SSM_API_KEY` / `MOCK_SSM_API_SECRET`, and writes `ssm-mock-release-<timestamp>.zip`
-in the project root. Only committed changes are packaged — commit first.
+`MOCK_SSM_API_KEY` / `MOCK_SSM_API_SECRET`, and writes `release/ssm-mock-release-<timestamp>.zip`
+(gitignored). Only committed changes are packaged — commit first.
 
 The generated `MOCK_SSM_API_KEY` / `MOCK_SSM_API_SECRET` are printed at the end;
 save them for step 4. Pass your own instead of random ones with

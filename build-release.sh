@@ -66,7 +66,9 @@ EOF
 echo "==> Setting storage/bootstrap permissions"
 chmod -R 775 "$BUILD_DIR/storage" "$BUILD_DIR/bootstrap/cache"
 
-OUT_ZIP="$ROOT_DIR/ssm-mock-release-$(date +%Y%m%d%H%M%S).zip"
+RELEASE_DIR="$ROOT_DIR/release"
+mkdir -p "$RELEASE_DIR"
+OUT_ZIP="$RELEASE_DIR/ssm-mock-release-$(date +%Y%m%d%H%M%S).zip"
 echo "==> Zipping release"
 (cd "$BUILD_DIR" && zip -rq "$OUT_ZIP" .)
 
