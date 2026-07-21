@@ -49,4 +49,17 @@ class EndToEndRoundTripTest extends TestCase
         $report->assertOk();
         $report->assertHeader('Content-Type', 'application/pdf');
     }
+
+    public function test_idaman_list_to_document_round_trip_for_the_example_case(): void
+    {
+        $list = $this->withHeaders($this->authHeaders())
+            ->postJson('/get-image-list', ['regNo' => '000000-X']);
+        $list->assertOk();
+        $list->assertJsonPath('getImageView.documentInfos.documentInfos.0.verId', 'EX-V1');
+
+        $document = $this->withHeaders($this->authHeaders())
+            ->postJson('/get-image', ['regNo' => '000000-X', 'verId' => 'EX-V1']);
+        $document->assertOk();
+        $this->assertNotEmpty($document->json('getImage.docContent'));
+    }
 }
