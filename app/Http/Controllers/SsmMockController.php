@@ -100,6 +100,38 @@ class SsmMockController extends Controller
         ]);
     }
 
+    public function image(Request $request): JsonResponse
+    {
+        $regNo = (string) $request->input('regNo');
+        $verId = (string) $request->input('verId');
+
+        $case = $this->cases->findByRegNoAny($regNo);
+        $documents = $case ? $this->cases->idamanDocuments($case) : null;
+        $hasEntry = $documents !== null && $this->containsVerId($documents, $verId);
+        $filePath = $hasEntry ? $this->cases->idamanDocumentFile($case, $verId) : null;
+
+        if ($filePath === null) {
+            return response()->json(['getImage' => ['errorMsg' => 'not found']]);
+        }
+
+        return response()->json([
+            'getImage' => [
+                'docContent' => base64_encode(file_get_contents($filePath)),
+            ],
+        ]);
+    }
+
+    private function containsVerId(array $documents, string $verId): bool
+    {
+        foreach ($documents as $document) {
+            if (($document['verId'] ?? null) === $verId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function profileResponse(Request $request, string $entityType, string $fixtureFile, string $envelopeKey): JsonResponse
     {
         $regNo = (string) $request->input('regNo');
