@@ -30,9 +30,25 @@ No rebuild or redeploy is needed — drop a new folder in and it's immediately q
 
 ## Environment variables
 
-- `MOCK_SSM_API_KEY` / `MOCK_SSM_API_SECRET` — must match `infominaAI-BE`'s `SSM_API_KEY` / `SSM_API_SECRET` env vars.
 - `APP_URL` — must be this app's real public URL; it's used to build the `documentUrl` field `infominaAI-BE` fetches directly.
 - `SSM_MOCK_CASES_PATH` — optional override for the case-folder directory (defaults to `storage/app/ssm-fixtures/cases`).
+
+## Admin UI and API credentials
+
+Gateway requests authenticate against per-client `ApiClient` records (key + secret
+pairs, expiring, revocable) stored in the database — there's no static shared secret
+anymore.
+
+- **Admin login** (`/login`): a single admin account, managed via a `ssm:make-admin`
+  artisan command rather than self-registration.
+  - Local dev: `php artisan ssm:make-admin {email} {password}`.
+  - Release builds: `build-release.sh` runs this automatically (see `DEPLOY.md`),
+    seeding the account into the shipped `database/database.sqlite` with an
+    `ADMIN_EMAIL` / `ADMIN_PASSWORD` you pass in or that it generates.
+- **Token management** (`/tokens`, requires login): generate and revoke the
+  key/secret pairs that `infominaAI-BE` authenticates gateway requests with. A
+  generated secret is shown only once, at creation time — copy it immediately and
+  set it as `infominaAI-BE`'s `SSM_API_KEY` / `SSM_API_SECRET`.
 
 ## Deployment
 

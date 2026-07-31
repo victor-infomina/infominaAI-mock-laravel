@@ -5,14 +5,17 @@
     cd infominaAI-ssm-mock
     APP_URL=https://<your-domain> ./build-release.sh
 
-Requires `php`, `composer`, `zip`, `git`, `openssl` on your machine. It runs the
-test suite, vendors production dependencies, generates `APP_KEY` /
-`MOCK_SSM_API_KEY` / `MOCK_SSM_API_SECRET`, and writes `release/ssm-mock-release-<timestamp>.zip`
-(gitignored). Only committed changes are packaged — commit first.
+Requires `php`, `composer`, `npm`, `zip`, `git`, `openssl` on your machine. It runs the
+test suite, vendors production dependencies, builds frontend assets, generates `APP_KEY`,
+migrates a fresh `database/database.sqlite` and seeds the single admin account (via
+`php artisan ssm:make-admin`) — all *inside* the build directory, before zipping, since
+the cPanel target has no SSH access to run these afterward. It then writes
+`release/ssm-mock-release-<timestamp>.zip` (gitignored). Only committed changes are
+packaged — commit first.
 
-The generated `MOCK_SSM_API_KEY` / `MOCK_SSM_API_SECRET` are printed at the end;
-save them for step 4. Pass your own instead of random ones with
-`MOCK_SSM_API_KEY=... MOCK_SSM_API_SECRET=... APP_URL=... ./build-release.sh`.
+The generated `ADMIN_EMAIL` / `ADMIN_PASSWORD` are printed at the end; save them for
+step 4 — they log into the admin UI, not `infominaAI-BE`. Pass your own instead of a
+random password with `ADMIN_EMAIL=... ADMIN_PASSWORD=... APP_URL=... ./build-release.sh`.
 
 ## 2. Upload and extract
 
@@ -25,13 +28,20 @@ save them for step 4. Pass your own instead of random ones with
 In cPanel > Domains (or Subdomains), create/edit the subdomain for `APP_URL` and set its
 **Document Root** to `~/laravel-ssm-mock/public`. No file copying or path editing needed.
 
-## 4. Point infominaAI-BE at the mock
+## 4. Generate an API credential and point infominaAI-BE at the mock
 
-Set, in infominaAI-BE's env:
+1. Log into `https://<your-domain>/login` with the `ADMIN_EMAIL` / `ADMIN_PASSWORD`
+   printed at the end of step 1.
+2. Go to `/tokens` and generate a new API credential pair — this is what gateway
+   requests actually authenticate against (the admin login itself is only for the
+   `/tokens` UI).
+3. Set, in infominaAI-BE's env:
 
-    SSM_API_URL=https://<your-domain>/
-    SSM_API_KEY=<MOCK_SSM_API_KEY from step 1>
-    SSM_API_SECRET=<MOCK_SSM_API_SECRET from step 1>
+       SSM_API_URL=https://<your-domain>/
+       SSM_API_KEY=<key from the token you just generated>
+       SSM_API_SECRET=<secret from the token you just generated>
+
+   The secret is only shown once at generation time — copy it immediately.
 
 ## 5. Adding a new case afterward
 

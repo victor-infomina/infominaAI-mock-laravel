@@ -8,7 +8,8 @@
 #   APP_URL=https://ssm-mock.example.com ./build-release.sh
 #
 # Optional env vars:
-#   MOCK_SSM_API_KEY, MOCK_SSM_API_SECRET  - fixed values instead of random ones
+#   ADMIN_EMAIL, ADMIN_PASSWORD            - fixed values instead of random/default ones
+#                                             for the seeded admin account
 #   SKIP_TESTS=1                           - skip the pre-build test run
 #   ALLOW_DIRTY=1                          - build even with uncommitted changes
 #                                             (uncommitted/untracked files are never
@@ -38,8 +39,8 @@ if [[ -z "${SKIP_TESTS:-}" ]]; then
   php artisan test
 fi
 
-MOCK_SSM_API_KEY="${MOCK_SSM_API_KEY:-$(openssl rand -hex 16)}"
-MOCK_SSM_API_SECRET="${MOCK_SSM_API_SECRET:-$(openssl rand -hex 32)}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@ssm-mock.local}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-$(openssl rand -hex 16)}"
 APP_KEY="base64:$(openssl rand -base64 32)"
 
 BUILD_DIR="$(mktemp -d)"
@@ -61,13 +62,15 @@ APP_ENV=production
 APP_KEY=$APP_KEY
 APP_DEBUG=false
 APP_URL=$APP_URL
-
-MOCK_SSM_API_KEY=$MOCK_SSM_API_KEY
-MOCK_SSM_API_SECRET=$MOCK_SSM_API_SECRET
 EOF
 
 echo "==> Setting storage/bootstrap permissions"
 chmod -R 775 "$BUILD_DIR/storage" "$BUILD_DIR/bootstrap/cache"
+
+echo "==> Migrating database and seeding admin user"
+touch "$BUILD_DIR/database/database.sqlite"
+(cd "$BUILD_DIR" && php artisan migrate --force)
+(cd "$BUILD_DIR" && php artisan ssm:make-admin "$ADMIN_EMAIL" "$ADMIN_PASSWORD")
 
 RELEASE_DIR="$ROOT_DIR/release"
 mkdir -p "$RELEASE_DIR"
@@ -79,13 +82,17 @@ cat <<EOF
 
 Release built: $OUT_ZIP
 
-MOCK_SSM_API_KEY=$MOCK_SSM_API_KEY
-MOCK_SSM_API_SECRET=$MOCK_SSM_API_SECRET
-(save these - set the same values as SSM_API_KEY / SSM_API_SECRET in infominaAI-BE's env)
+ADMIN_EMAIL=$ADMIN_EMAIL
+ADMIN_PASSWORD=$ADMIN_PASSWORD
+(save these - log into https://<domain>/login with them, then visit /tokens to
+generate an API credential pair. Set THAT key/secret as SSM_API_KEY / SSM_API_SECRET
+in infominaAI-BE's env - not the admin password above.)
 
 Deploy:
   1. cPanel File Manager: create a folder outside public_html, e.g. ~/laravel-ssm-mock/
   2. Upload $(basename "$OUT_ZIP") into it and Extract
   3. cPanel > Domains: point your subdomain's document root at ~/laravel-ssm-mock/public
-  4. Test: curl -X POST https://<domain>/get-search-entity ...
+  4. Log into https://<domain>/login, generate a token at /tokens, and configure
+     infominaAI-BE with it
+  5. Test: curl -X POST https://<domain>/get-search-entity ...
 EOF
