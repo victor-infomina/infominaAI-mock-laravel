@@ -31,7 +31,7 @@ class LoginTest extends TestCase
             'password' => 'correct-password',
         ]);
 
-        $response->assertRedirect('/');
+        $response->assertRedirect(route('tokens.index'));
         $this->assertAuthenticated();
     }
 
@@ -67,6 +67,6 @@ class LoginTest extends TestCase
 
         $response = $this->actingAs($user)->get('/login');
 
-        $response->assertRedirect('/');
+        $response->assertRedirect(route('tokens.index'));
     }
 }

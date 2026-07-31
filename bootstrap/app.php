@@ -17,6 +17,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'verify.gateway' => VerifyApiClientCredentials::class,
         ]);
+
+        $middleware->redirectUsersTo(fn () => route('tokens.index'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

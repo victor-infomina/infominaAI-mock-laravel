@@ -27,7 +27,7 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended('/');
+        return redirect()->intended(route('tokens.index'));
     }
 
     public function destroy(Request $request): RedirectResponse
