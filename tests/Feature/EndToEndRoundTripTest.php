@@ -2,26 +2,19 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithApiClients;
 use Tests\TestCase;
 
 class EndToEndRoundTripTest extends TestCase
 {
+    use RefreshDatabase, InteractsWithApiClients;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        config([
-            'ssm_mock.api_key' => 'test-key',
-            'ssm_mock.api_secret' => 'test-secret',
-        ]);
-    }
-
-    private function authHeaders(): array
-    {
-        return [
-            'x-Gateway-APIKey' => 'test-key',
-            'x-Gateway-APISecret' => 'test-secret',
-        ];
+        $this->setUpApiClient();
     }
 
     public function test_full_profile_to_report_round_trip_for_the_example_case(): void

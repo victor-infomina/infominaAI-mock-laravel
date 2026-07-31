@@ -2,31 +2,25 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithApiClients;
 use Tests\TestCase;
 
 class IdamanDocumentTest extends TestCase
 {
+    use RefreshDatabase, InteractsWithApiClients;
+
     private string $casesPath;
 
     protected function setUp(): void
     {
         parent::setUp();
 
+        $this->setUpApiClient();
+
         $this->casesPath = sys_get_temp_dir().'/ssm-mock-idaman-doc-test-'.uniqid();
         mkdir($this->casesPath, 0777, true);
-        config([
-            'ssm_mock.cases_path' => $this->casesPath,
-            'ssm_mock.api_key' => 'test-key',
-            'ssm_mock.api_secret' => 'test-secret',
-        ]);
-    }
-
-    private function authHeaders(): array
-    {
-        return [
-            'x-Gateway-APIKey' => 'test-key',
-            'x-Gateway-APISecret' => 'test-secret',
-        ];
+        config(['ssm_mock.cases_path' => $this->casesPath]);
     }
 
     private function seedCaseWithDocument(string $key, string $regNo, string $verId, string $content): void

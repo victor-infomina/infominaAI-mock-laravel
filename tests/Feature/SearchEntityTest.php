@@ -2,23 +2,25 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithApiClients;
 use Tests\TestCase;
 
 class SearchEntityTest extends TestCase
 {
+    use RefreshDatabase, InteractsWithApiClients;
+
     private string $casesPath;
 
     protected function setUp(): void
     {
         parent::setUp();
 
+        $this->setUpApiClient();
+
         $this->casesPath = sys_get_temp_dir().'/ssm-mock-search-test-'.uniqid();
         mkdir($this->casesPath, 0777, true);
-        config([
-            'ssm_mock.cases_path' => $this->casesPath,
-            'ssm_mock.api_key' => 'test-key',
-            'ssm_mock.api_secret' => 'test-secret',
-        ]);
+        config(['ssm_mock.cases_path' => $this->casesPath]);
 
         $caseDir = $this->casesPath.'/acme-co';
         mkdir($caseDir, 0777, true);
@@ -27,14 +29,6 @@ class SearchEntityTest extends TestCase
             'companyName' => 'Acme Sdn Bhd',
             'entityType' => 'company',
         ]));
-    }
-
-    private function authHeaders(): array
-    {
-        return [
-            'x-Gateway-APIKey' => 'test-key',
-            'x-Gateway-APISecret' => 'test-secret',
-        ];
     }
 
     public function test_finds_case_by_reg_no(): void
