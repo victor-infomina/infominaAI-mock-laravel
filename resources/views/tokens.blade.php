@@ -36,6 +36,13 @@
                         class="rounded-md border-gray-300 text-sm shadow-sm" value="{{ old('label') }}">
                 </div>
                 <div>
+                    <label for="purpose" class="mb-1 block text-sm text-gray-600">Purpose</label>
+                    <select name="purpose" id="purpose" class="rounded-md border-gray-300 text-sm shadow-sm">
+                        <option value="gateway">gateway (infominaAI-BE)</option>
+                        <option value="admin_sync">admin_sync (local case-sync tool)</option>
+                    </select>
+                </div>
+                <div>
                     <label for="expires_in_days" class="mb-1 block text-sm text-gray-600">Expires</label>
                     <select name="expires_in_days" id="expires_in_days" class="rounded-md border-gray-300 text-sm shadow-sm">
                         <option value="30">30 days</option>
@@ -58,6 +65,7 @@
             <thead class="bg-gray-100 text-left">
                 <tr>
                     <th class="px-4 py-2">Label</th>
+                    <th class="px-4 py-2">Purpose</th>
                     <th class="px-4 py-2">Key</th>
                     <th class="px-4 py-2">Status</th>
                     <th class="px-4 py-2">Expires</th>
@@ -68,6 +76,7 @@
                 @forelse ($apiClients as $apiClient)
                     <tr>
                         <td class="px-4 py-2">{{ $apiClient->label }}</td>
+                        <td class="px-4 py-2">{{ $apiClient->purpose }}</td>
                         <td class="px-4 py-2 font-mono">{{ $apiClient->key }}</td>
                         <td class="px-4 py-2">
                             @if ($apiClient->isRevoked())
@@ -90,7 +99,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-4 py-6 text-center text-gray-500">No tokens yet.</td>
+                        <td colspan="6" class="px-4 py-6 text-center text-gray-500">No tokens yet.</td>
                     </tr>
                 @endforelse
             </tbody>

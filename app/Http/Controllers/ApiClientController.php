@@ -21,6 +21,7 @@ class ApiClientController extends Controller
     {
         $validated = $request->validate([
             'label' => ['required', 'string', 'max:255'],
+            'purpose' => ['required', Rule::in(['gateway', 'admin_sync'])],
             'expires_in_days' => ['nullable', Rule::in(['', '30', '90', '180', '365'])],
         ]);
 
@@ -28,7 +29,7 @@ class ApiClientController extends Controller
             ? (int) $validated['expires_in_days']
             : null;
 
-        [$apiClient, $secret] = ApiClient::createWithSecret($validated['label'], $expiresInDays);
+        [$apiClient, $secret] = ApiClient::createWithSecret($validated['label'], $expiresInDays, $validated['purpose']);
 
         return redirect()->route('tokens.index')->with([
             'generatedKey' => $apiClient->key,

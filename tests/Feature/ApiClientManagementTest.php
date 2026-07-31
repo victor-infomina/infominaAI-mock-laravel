@@ -35,6 +35,7 @@ class ApiClientManagementTest extends TestCase
 
         $response = $this->actingAs($admin)->post('/tokens', [
             'label' => 'new-client',
+            'purpose' => 'gateway',
             'expires_in_days' => '30',
         ]);
 
@@ -52,6 +53,7 @@ class ApiClientManagementTest extends TestCase
 
         $this->actingAs($admin)->post('/tokens', [
             'label' => 'no-expiry-client',
+            'purpose' => 'gateway',
             'expires_in_days' => '',
         ])->assertRedirect(route('tokens.index'));
 
@@ -75,5 +77,29 @@ class ApiClientManagementTest extends TestCase
         ])->postJson('/get-search-entity', ['regNo' => 'whatever', 'entityType' => 'company']);
 
         $gatewayResponse->assertStatus(401);
+    }
+
+    public function test_generating_a_token_with_admin_sync_purpose(): void
+    {
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)->post('/tokens', [
+            'label' => 'local-sync-tool',
+            'purpose' => 'admin_sync',
+            'expires_in_days' => '',
+        ])->assertRedirect(route('tokens.index'));
+
+        $apiClient = ApiClient::where('label', 'local-sync-tool')->firstOrFail();
+        $this->assertSame('admin_sync', $apiClient->purpose);
+    }
+
+    public function test_token_list_shows_purpose(): void
+    {
+        $admin = User::factory()->create();
+        ApiClient::createWithSecret('local-sync-tool', null, 'admin_sync');
+
+        $response = $this->actingAs($admin)->get('/tokens');
+
+        $response->assertSee('admin_sync');
     }
 }
