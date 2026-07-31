@@ -19,7 +19,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel)"
 cd "$ROOT_DIR"
 
-for bin in php composer zip git openssl; do
+for bin in php composer npm zip git openssl; do
   command -v "$bin" >/dev/null 2>&1 || { echo "error: '$bin' is required but not found in PATH" >&2; exit 1; }
 done
 
@@ -50,6 +50,9 @@ git archive HEAD | tar -x -C "$BUILD_DIR"
 
 echo "==> Installing production dependencies"
 (cd "$BUILD_DIR" && composer install --no-dev --optimize-autoloader --no-interaction)
+
+echo "==> Building frontend assets"
+(cd "$BUILD_DIR" && npm ci && npm run build)
 
 echo "==> Writing production .env"
 cat > "$BUILD_DIR/.env" <<EOF
