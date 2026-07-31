@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CaseUploadController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +13,10 @@ Route::middleware('verify.gateway')->group(function () {
     Route::post('/get-order-document', [SsmMockController::class, 'orderDocument']);
     Route::post('/get-image-list', [SsmMockController::class, 'imageList']);
     Route::post('/get-image', [SsmMockController::class, 'image']);
+});
+
+Route::middleware('verify.gateway:admin_sync')->group(function () {
+    Route::post('/admin-api/cases', [CaseUploadController::class, 'store']);
 });
 
 Route::get('/reports/{caseKey}.pdf', [ReportController::class, 'show'])
