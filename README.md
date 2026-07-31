@@ -14,7 +14,31 @@ A Laravel mock of 7 SSM gateway endpoints, for pointing `infominaAI-BE`'s
 - `POST /get-image` — a single Idaman document's content by `regNo` + `verId`
 - `GET /reports/{caseKey}.pdf` (used internally — `documentUrl` in the `get-order-document` response points here)
 
-## Adding a test case
+## Adding a test case (preferred: Sync Cases tool)
+
+The preferred way to add a case is the **Sync Cases** admin tool, which pulls a real
+entity straight out of the dev database/S3 and pushes an assembled case bundle to
+wherever this app is actually deployed — no manual file assembly needed.
+
+1. Run this app locally with `APP_ENV=local`, pointed at the dev DB and S3 bucket via
+   the existing `BE_DB_*` / `SSM_S3_*` env vars (see "Environment variables" below).
+2. Log in (`/login`) and visit `/admin/sync-cases` — only reachable when
+   `APP_ENV=local` (404s otherwise).
+3. Search by company/business/LLP name or regNo, pick a result to open it, optionally
+   select which Idaman documents to include, then click **Sync to shared host**.
+4. This requires `SSM_MOCK_REMOTE_URL` plus an `admin_sync`-purpose credential
+   (`SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET`) pointed at wherever this
+   app is actually deployed (the instance `infominaAI-BE`'s `SSM_API_URL` points at).
+   Generate that credential from the `/tokens` UI on the **deployed** instance — pick
+   `admin_sync` as the purpose — and copy the plaintext key/secret into the **local**
+   instance's `.env` (see `DEPLOY.md` step 4 for details). The push lands on
+   `POST /admin-api/cases` on the deployed instance, which writes the case folder
+   there directly — no rebuild/redeploy needed.
+
+If you can't run this app locally against the dev DB (or need to hand-craft a case
+that doesn't exist in the dev DB), fall back to the manual method below.
+
+### Manual fallback: hand-crafted case folder
 
 Create a folder under `storage/app/ssm-fixtures/cases/{caseKey}/` containing:
 
@@ -32,6 +56,9 @@ No rebuild or redeploy is needed — drop a new folder in and it's immediately q
 
 - `APP_URL` — must be this app's real public URL; it's used to build the `documentUrl` field `infominaAI-BE` fetches directly.
 - `SSM_MOCK_CASES_PATH` — optional override for the case-folder directory (defaults to `storage/app/ssm-fixtures/cases`).
+- `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
+- `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool to pull Idaman document content.
+- `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool (see above); unused unless you're running `/admin/sync-cases` locally.
 
 ## Admin UI and API credentials
 

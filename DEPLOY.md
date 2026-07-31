@@ -43,10 +43,34 @@ In cPanel > Domains (or Subdomains), create/edit the subdomain for `APP_URL` and
 
    The secret is only shown once at generation time — copy it immediately.
 
+4b. **(Optional) Enable the Sync Cases tool for this deployment.** If you'll be adding
+cases via the local Sync Cases admin UI (`/admin/sync-cases`, see `README.md`) instead
+of manual FTP uploads, generate a second credential here for it to push against:
+
+1. While still logged into `https://<your-domain>/tokens` on this **deployed**
+   instance, generate another API credential, this time selecting `admin_sync` as
+   the purpose (rather than the default `gateway`). This is the credential the
+   receiving `POST /admin-api/cases` endpoint on this instance checks.
+2. On your **local** machine, running this same app with `APP_ENV=local` against
+   the dev DB/S3 (see `README.md`'s "Environment variables"), set in its `.env`:
+
+       SSM_MOCK_REMOTE_URL=https://<your-domain>/
+       SSM_MOCK_ADMIN_SYNC_KEY=<key from the admin_sync credential you just generated>
+       SSM_MOCK_ADMIN_SYNC_SECRET=<secret from the admin_sync credential you just generated>
+
+   Local Sync Cases requests will now push case bundles to this deployed instance.
+
 ## 5. Adding a new case afterward
 
-Upload a new folder under `storage/app/ssm-fixtures/cases/{caseKey}/` via FTP/File Manager
-(see `README.md` for the folder contents). No rebuild or redeploy of app code is needed.
+**Preferred:** use the local Sync Cases tool (`/admin/sync-cases`, requires the
+`APP_ENV=local` setup and `SSM_MOCK_REMOTE_URL`/`SSM_MOCK_ADMIN_SYNC_KEY`/
+`SSM_MOCK_ADMIN_SYNC_SECRET` from step 4b above) — search for the entity, pick Idaman
+documents, and click Sync; it lands directly on this deployed instance via
+`POST /admin-api/cases`, no FTP or redeploy needed. See `README.md` for the full flow.
+
+**Fallback (manual FTP/File Manager):** upload a new folder under
+`storage/app/ssm-fixtures/cases/{caseKey}/` via FTP/File Manager (see `README.md` for
+the folder contents). No rebuild or redeploy of app code is needed either way.
 
 ## 6. If permissions get reset
 
