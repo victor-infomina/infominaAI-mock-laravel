@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureLocalAdminEnabled;
 use App\Http\Middleware\VerifyApiClientCredentials;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'verify.gateway' => VerifyApiClientCredentials::class,
+            'local.only' => EnsureLocalAdminEnabled::class,
         ]);
 
         $middleware->redirectUsersTo(fn () => route('tokens.index'));
