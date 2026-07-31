@@ -14,6 +14,14 @@ A Laravel mock of 7 SSM gateway endpoints, for pointing `infominaAI-BE`'s
 - `POST /get-image` — a single Idaman document's content by `regNo` + `verId`
 - `GET /reports/{caseKey}.pdf` (used internally — `documentUrl` in the `get-order-document` response points here)
 
+## LLM mock endpoint (for transformer-api's LLM_DOMAIN)
+
+- `POST /{modelOp}/invoke` — mocks the LLM inference server `transformer-api`'s SSM service calls via its `LLM_DOMAIN` env var (`{LLM_DOMAIN}/{model}_{operation}/invoke`, e.g. `llm_summarize/invoke`, `claude_recommend/invoke`). No auth required — the real client sends none.
+  - `*_summarize/invoke` and `*_search/invoke` → canned static text.
+  - `*_recommend/invoke` → per-product recommendation logic (`tin`, `bir`, `nearby_companies`, and a generic fallback for anything else), tolerant of `able_to_purchase`/`purchased` as booleans or `'YES'/'NO'` strings.
+  - Any other `{modelOp}` → a generic fallback response (still `200`, not an error).
+  - To use: point `transformer-api`'s `services/ssm/utils/.env_ssm` → `LLM_DOMAIN` at this app's public URL instead of a real LLM host or a locally-run mock.
+
 ## Adding a test case (preferred: Sync Cases tool)
 
 The preferred way to add a case is the **Sync Cases** admin tool, which pulls a real
