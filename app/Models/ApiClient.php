@@ -10,6 +10,7 @@ class ApiClient extends Model
 {
     protected $fillable = [
         'label',
+        'purpose',
         'key',
         'secret_hash',
         'expires_at',
@@ -27,12 +28,13 @@ class ApiClient extends Model
     /**
      * @return array{0: self, 1: string} the created client and its plaintext secret
      */
-    public static function createWithSecret(string $label, ?int $expiresInDays): array
+    public static function createWithSecret(string $label, ?int $expiresInDays, string $purpose = 'gateway'): array
     {
         $secret = Str::random(40);
 
         $apiClient = static::create([
             'label' => $label,
+            'purpose' => $purpose,
             'key' => Str::random(24),
             'secret_hash' => Hash::make($secret),
             'expires_at' => $expiresInDays !== null ? now()->addDays($expiresInDays) : null,

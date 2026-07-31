@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class VerifyApiClientCredentials
 {
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, string $purpose = 'gateway'): Response
     {
         $key = $request->header('x-Gateway-APIKey');
         $secret = $request->header('x-Gateway-APISecret');
@@ -21,7 +21,12 @@ class VerifyApiClientCredentials
 
         $apiClient = ApiClient::where('key', $key)->first();
 
-        if ($apiClient === null || ! Hash::check($secret, $apiClient->secret_hash) || ! $apiClient->isActive()) {
+        if (
+            $apiClient === null
+            || ! Hash::check($secret, $apiClient->secret_hash)
+            || ! $apiClient->isActive()
+            || $apiClient->purpose !== $purpose
+        ) {
             return response()->json(['error' => 'unauthorized'], 401);
         }
 

@@ -90,4 +90,30 @@ class VerifyApiClientCredentialsTest extends TestCase
 
         $this->assertSame(401, $response->getStatusCode());
     }
+
+    public function test_rejects_client_with_wrong_purpose(): void
+    {
+        [$apiClient, $secret] = ApiClient::createWithSecret('local-sync-tool', null, 'admin_sync');
+
+        $request = Request::create('/whatever', 'POST');
+        $request->headers->set('x-Gateway-APIKey', $apiClient->key);
+        $request->headers->set('x-Gateway-APISecret', $secret);
+
+        $response = (new VerifyApiClientCredentials())->handle($request, $this->nextReturningOk(), 'gateway');
+
+        $this->assertSame(401, $response->getStatusCode());
+    }
+
+    public function test_allows_client_with_matching_non_default_purpose(): void
+    {
+        [$apiClient, $secret] = ApiClient::createWithSecret('local-sync-tool', null, 'admin_sync');
+
+        $request = Request::create('/whatever', 'POST');
+        $request->headers->set('x-Gateway-APIKey', $apiClient->key);
+        $request->headers->set('x-Gateway-APISecret', $secret);
+
+        $response = (new VerifyApiClientCredentials())->handle($request, $this->nextReturningOk(), 'admin_sync');
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
 }

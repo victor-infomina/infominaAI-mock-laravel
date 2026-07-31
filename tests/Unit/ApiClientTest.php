@@ -60,4 +60,18 @@ class ApiClientTest extends TestCase
 
         $this->assertTrue($apiClient->isActive());
     }
+
+    public function test_purpose_defaults_to_gateway(): void
+    {
+        [$apiClient] = ApiClient::createWithSecret('acme-app', null);
+
+        $this->assertSame('gateway', $apiClient->purpose);
+    }
+
+    public function test_purpose_can_be_set_explicitly(): void
+    {
+        [$apiClient] = ApiClient::createWithSecret('local-sync-tool', null, 'admin_sync');
+
+        $this->assertSame('admin_sync', $apiClient->purpose);
+    }
 }
