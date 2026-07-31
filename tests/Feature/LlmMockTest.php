@@ -79,6 +79,7 @@ class LlmMockTest extends TestCase
             fn (string $text) => str_contains($text, 'Click the TIN column to purchase')
         );
         $response->assertJsonPath('output.products.0.tin.actions.0.action_type', 'PURCHASE');
+        $this->assertStringContainsString('"details":{}', $response->getContent());
     }
 
     public function test_recommend_tin_not_purchasable_has_no_actions(): void
@@ -117,6 +118,7 @@ class LlmMockTest extends TestCase
             fn (string $text) => str_contains($text, 'Purchase the full report')
         );
         $response->assertJsonPath('output.products.0.bir.actions.0.action_type', 'PURCHASE');
+        $this->assertStringContainsString('"details":{}', $response->getContent());
     }
 
     public function test_recommend_nearby_companies_with_details_includes_map_action(): void
