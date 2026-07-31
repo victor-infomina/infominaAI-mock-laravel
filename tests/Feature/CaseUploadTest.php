@@ -114,4 +114,20 @@ class CaseUploadTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    public function test_rejects_bundle_whose_top_dir_slugs_to_an_empty_case_key(): void
+    {
+        mkdir("{$this->casesPath}/existing-legit-case", 0777, true);
+        file_put_contents("{$this->casesPath}/existing-legit-case/some-file.txt", 'legit data');
+
+        $zipPath = $this->makeZip('...', [
+            'meta.json' => json_encode(['regNo' => 'x', 'companyName' => 'x', 'entityType' => 'company']),
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->post('/admin-api/cases', ['bundle' => new UploadedFile($zipPath, 'case.zip', 'application/zip', null, true)]);
+
+        $response->assertStatus(422);
+        $this->assertFileExists("{$this->casesPath}/existing-legit-case/some-file.txt");
+    }
 }

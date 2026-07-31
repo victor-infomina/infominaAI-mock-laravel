@@ -63,7 +63,21 @@ class CaseUploadController extends Controller
         }
 
         $caseKey = Str::slug($topDir);
-        $destination = rtrim(config('ssm_mock.cases_path'), '/')."/{$caseKey}";
+
+        if ($caseKey === '') {
+            $zip->close();
+
+            return response()->json(['error' => 'top-level directory name produced an empty case key'], 422);
+        }
+
+        $casesRoot = rtrim(config('ssm_mock.cases_path'), '/');
+        $destination = "{$casesRoot}/{$caseKey}";
+
+        if (! (strlen($destination) > strlen($casesRoot) + 1 && str_starts_with($destination, "{$casesRoot}/"))) {
+            $zip->close();
+
+            return response()->json(['error' => 'resolved case destination is not a valid subdirectory of the cases root'], 422);
+        }
 
         if (is_dir($destination)) {
             $this->deleteDirectory($destination);
