@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CaseUploadController;
+use App\Http\Controllers\LlmMockController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
@@ -22,3 +23,6 @@ Route::middleware('verify.gateway:admin_sync')->group(function () {
 Route::get('/reports/{caseKey}.pdf', [ReportController::class, 'show'])
     ->where('caseKey', '[A-Za-z0-9_-]+')
     ->name('ssm-mock.report');
+
+Route::post('/{modelOp}/invoke', [LlmMockController::class, 'invoke'])
+    ->where('modelOp', '[A-Za-z0-9_]+');
