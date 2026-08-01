@@ -102,4 +102,32 @@ class ApiClientManagementTest extends TestCase
 
         $response->assertSee('admin_sync');
     }
+
+    public function test_generating_a_token_with_asiaverify_purpose(): void
+    {
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)->post('/tokens', [
+            'label' => 'be-app-asiaverify',
+            'purpose' => 'asiaverify',
+            'expires_in_days' => '',
+        ])->assertRedirect(route('tokens.index'));
+
+        $apiClient = ApiClient::where('label', 'be-app-asiaverify')->firstOrFail();
+        $this->assertSame('asiaverify', $apiClient->purpose);
+    }
+
+    public function test_generating_a_token_with_dnb_purpose(): void
+    {
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)->post('/tokens', [
+            'label' => 'be-app-dnb',
+            'purpose' => 'dnb',
+            'expires_in_days' => '',
+        ])->assertRedirect(route('tokens.index'));
+
+        $apiClient = ApiClient::where('label', 'be-app-dnb')->firstOrFail();
+        $this->assertSame('dnb', $apiClient->purpose);
+    }
 }
