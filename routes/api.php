@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/token/create', [AsiaverifyMockController::class, 'createToken']);
 
+Route::middleware('verify.asiaverify.token')->group(function () {
+    Route::get('/{country}/search', [AsiaverifyMockController::class, 'search'])->where('country', '[A-Za-z]{3}');
+});
+
 Route::middleware('verify.gateway')->group(function () {
     Route::post('/get-search-entity', [SsmMockController::class, 'searchEntity']);
     Route::post('/v2/get-company-profile-document', [SsmMockController::class, 'companyProfile']);

@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureLocalAdminEnabled;
 use App\Http\Middleware\VerifyApiClientCredentials;
+use App\Http\Middleware\VerifyAsiaverifyToken;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'verify.gateway' => VerifyApiClientCredentials::class,
             'local.only' => EnsureLocalAdminEnabled::class,
+            'verify.asiaverify.token' => VerifyAsiaverifyToken::class,
         ]);
 
         $middleware->redirectUsersTo(fn () => route('tokens.index'));

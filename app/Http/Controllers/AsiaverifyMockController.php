@@ -54,4 +54,33 @@ class AsiaverifyMockController extends Controller
             'lastUpdated' => now()->toDateTimeString(),
         ]);
     }
+
+    public function search(Request $request, string $country): JsonResponse
+    {
+        $keyword = (string) $request->query('keyword', '');
+        $matches = $keyword !== '' ? $this->cases->search($country, $keyword) : [];
+
+        $data = array_map(fn (array $case) => [
+            'companyId' => $case['meta']['companyId'],
+            'companyName' => $case['meta']['companyName'],
+            'companyNameOg' => $case['meta']['companyName'],
+            'isTranslated' => false,
+        ], $matches);
+
+        return response()->json([
+            'code' => '200',
+            'message' => 'Request succeeded',
+            'result' => [
+                'data' => $data,
+                'total' => count($data),
+            ],
+            'lastUpdated' => now()->toDateTimeString(),
+            'orderNo' => $this->generateOrderNo(),
+        ]);
+    }
+
+    private function generateOrderNo(): string
+    {
+        return 'av'.now()->format('YmdHis').random_int(1000000000, 9999999999);
+    }
 }
