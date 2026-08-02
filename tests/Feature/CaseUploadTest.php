@@ -130,4 +130,71 @@ class CaseUploadTest extends TestCase
         $response->assertStatus(422);
         $this->assertFileExists("{$this->casesPath}/existing-legit-case/some-file.txt");
     }
+
+    public function test_uploads_to_asiaverify_cases_path_when_gateway_field_is_asiaverify(): void
+    {
+        $asiaverifyPath = sys_get_temp_dir().'/asiaverify-mock-case-upload-test-'.uniqid();
+        mkdir($asiaverifyPath, 0777, true);
+        config(['asiaverify_mock.cases_path' => $asiaverifyPath]);
+
+        $zipPath = $this->makeZip('nguyen-trading', [
+            'meta.json' => json_encode(['country' => 'VNM', 'companyId' => '0101234567', 'companyName' => 'Nguyen Trading Co']),
+            'profile.json' => '{"companyId":"0101234567"}',
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders())->post('/admin-api/cases', [
+            'bundle' => new UploadedFile($zipPath, 'case.zip', 'application/zip', null, true),
+            'gateway' => 'asiaverify',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['caseKey' => 'nguyen-trading', 'status' => 'synced']);
+        $this->assertFileExists("{$asiaverifyPath}/nguyen-trading/meta.json");
+        $this->assertFileDoesNotExist("{$this->casesPath}/nguyen-trading");
+    }
+
+    public function test_uploads_to_dnb_cases_path_when_gateway_field_is_dnb(): void
+    {
+        $dnbPath = sys_get_temp_dir().'/dnb-mock-case-upload-test-'.uniqid();
+        mkdir($dnbPath, 0777, true);
+        config(['dnb_mock.cases_path' => $dnbPath]);
+
+        $zipPath = $this->makeZip('acme-sg', [
+            'meta.json' => json_encode(['country' => 'singapore', 'regNo' => '201912345A', 'companyName' => 'Acme Pte Ltd']),
+            'profile.xml' => '<REPORT></REPORT>',
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders())->post('/admin-api/cases', [
+            'bundle' => new UploadedFile($zipPath, 'case.zip', 'application/zip', null, true),
+            'gateway' => 'dnb',
+        ]);
+
+        $response->assertOk();
+        $this->assertFileExists("{$dnbPath}/acme-sg/meta.json");
+    }
+
+    public function test_omitted_gateway_field_still_defaults_to_ssm_cases_path(): void
+    {
+        $zipPath = $this->makeZip('legacy-co', [
+            'meta.json' => json_encode(['regNo' => 'x', 'companyName' => 'x', 'entityType' => 'company']),
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->post('/admin-api/cases', ['bundle' => new UploadedFile($zipPath, 'case.zip', 'application/zip', null, true)]);
+
+        $response->assertOk();
+        $this->assertFileExists("{$this->casesPath}/legacy-co/meta.json");
+    }
+
+    public function test_rejects_unrecognized_gateway_field(): void
+    {
+        $zipPath = $this->makeZip('acme', ['meta.json' => '{}']);
+
+        $response = $this->withHeaders($this->authHeaders())->post('/admin-api/cases', [
+            'bundle' => new UploadedFile($zipPath, 'case.zip', 'application/zip', null, true),
+            'gateway' => 'not-a-real-gateway',
+        ]);
+
+        $response->assertStatus(422);
+    }
 }

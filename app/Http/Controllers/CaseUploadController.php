@@ -4,14 +4,32 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class CaseUploadController extends Controller
 {
+    private const CASES_PATH_CONFIG_KEY = [
+        'ssm' => 'ssm_mock.cases_path',
+        'asiaverify' => 'asiaverify_mock.cases_path',
+        'dnb' => 'dnb_mock.cases_path',
+    ];
+
     public function store(Request $request): JsonResponse
     {
-        $request->validate(['bundle' => ['required', 'file']]);
+        $validator = Validator::make($request->all(), [
+            'bundle' => ['required', 'file'],
+            'gateway' => ['nullable', Rule::in(['ssm', 'asiaverify', 'dnb'])],
+        ]);
 
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()->first()], 422);
+        }
+
+        $validated = $validator->validated();
+
+        $casesPathConfigKey = self::CASES_PATH_CONFIG_KEY[$validated['gateway'] ?? 'ssm'];
         $uploadedPath = $request->file('bundle')->getRealPath();
         $zip = new \ZipArchive();
 
@@ -70,7 +88,7 @@ class CaseUploadController extends Controller
             return response()->json(['error' => 'top-level directory name produced an empty case key'], 422);
         }
 
-        $casesRoot = rtrim(config('ssm_mock.cases_path'), '/');
+        $casesRoot = rtrim(config($casesPathConfigKey), '/');
         $destination = "{$casesRoot}/{$caseKey}";
 
         if (! (strlen($destination) > strlen($casesRoot) + 1 && str_starts_with($destination, "{$casesRoot}/"))) {
