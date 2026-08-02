@@ -149,4 +149,124 @@ class SyncCasesTest extends TestCase
         $this->assertFalse($zip->locateName('hicom-holdings-berhad/idaman/V2.tiff'));
         $zip->close();
     }
+
+    public function test_search_filters_by_gateway(): void
+    {
+        config(['ssm_mock.local_admin_enabled' => true]);
+        $this->seedRequest('0101234567', 'NGUYEN TRADING CO', 'vietnam_company_profile');
+        $this->seedRequest('191001000005', 'HICOM HOLDINGS BERHAD');
+
+        $response = $this->actingAs(User::factory()->create())
+            ->get('/admin/sync-cases?q=a&gateway=asiaverify');
+
+        $response->assertOk();
+        $response->assertSee('NGUYEN TRADING CO');
+        $response->assertDontSee('HICOM HOLDINGS BERHAD');
+    }
+
+    public function test_search_results_show_source_label(): void
+    {
+        config(['ssm_mock.local_admin_enabled' => true]);
+        $this->seedRequest('0101234567', 'NGUYEN TRADING CO', 'vietnam_company_profile');
+
+        $response = $this->actingAs(User::factory()->create())->get('/admin/sync-cases?q=nguyen');
+
+        $response->assertSee('AsiaVerify — Vietnam');
+    }
+
+    public function test_detail_page_hides_idaman_section_for_asiaverify_row(): void
+    {
+        config(['ssm_mock.local_admin_enabled' => true]);
+        $requestId = $this->seedRequest('0101234567', 'NGUYEN TRADING CO', 'vietnam_company_profile');
+
+        $response = $this->actingAs(User::factory()->create())->get("/admin/sync-cases/{$requestId}");
+
+        $response->assertOk();
+        $response->assertDontSee('Idaman documents');
+    }
+
+    public function test_sync_action_uses_asiaverify_builder_and_posts_gateway_field(): void
+    {
+        config(['ssm_mock.local_admin_enabled' => true]);
+        $requestId = $this->seedRequest(
+            '0101234567',
+            'NGUYEN TRADING CO',
+            'vietnam_company_profile',
+            'https://my-bucket.s3.r.amazonaws.com/raw.json',
+        );
+        $this->app->bind(S3ObjectFetcher::class, fn () => new FakeS3ObjectFetcher([
+            'my-bucket/raw.json' => json_encode(['result' => ['companyName' => 'Nguyen Trading Co']]),
+        ]));
+
+        $capturedRequest = null;
+        Http::fake(function ($request) use (&$capturedRequest) {
+            $capturedRequest = $request;
+
+            return Http::response(['caseKey' => 'nguyen-trading-co', 'status' => 'synced'], 200);
+        });
+
+        $response = $this->actingAs(User::factory()->create())
+            ->post("/admin/sync-cases/{$requestId}/sync", ['idaman_version_ids' => []]);
+
+        $response->assertRedirect("/admin/sync-cases/{$requestId}");
+        $response->assertSessionHas('syncResult', 'synced: nguyen-trading-co');
+        $this->assertSame('asiaverify', collect($capturedRequest->data())->firstWhere('name', 'gateway')['contents']);
+
+        $zip = new \ZipArchive();
+        $bundlePart = collect($capturedRequest->data())->firstWhere('name', 'bundle');
+        $tempZip = sys_get_temp_dir().'/captured-'.uniqid().'.zip';
+        file_put_contents($tempZip, $bundlePart['contents']);
+        $zip->open($tempZip);
+        $this->assertNotFalse($zip->locateName('nguyen-trading-co/profile.json'));
+        $zip->close();
+    }
+
+    public function test_sync_action_uses_dnb_builder_and_posts_gateway_field(): void
+    {
+        config(['ssm_mock.local_admin_enabled' => true]);
+        $requestId = $this->seedRequest(
+            '201912345A',
+            'ACME PTE LTD',
+            'singapore_company_profile',
+            'https://my-bucket.s3.r.amazonaws.com/raw.xml',
+        );
+        $this->app->bind(S3ObjectFetcher::class, fn () => new FakeS3ObjectFetcher([
+            'my-bucket/raw.xml' => '<REPORT><CompanyB2b><CompanyName>Acme Pte Ltd</CompanyName></CompanyB2b></REPORT>',
+        ]));
+
+        $capturedRequest = null;
+        Http::fake(function ($request) use (&$capturedRequest) {
+            $capturedRequest = $request;
+
+            return Http::response(['caseKey' => 'acme-pte-ltd', 'status' => 'synced'], 200);
+        });
+
+        $response = $this->actingAs(User::factory()->create())
+            ->post("/admin/sync-cases/{$requestId}/sync", ['idaman_version_ids' => []]);
+
+        $response->assertRedirect("/admin/sync-cases/{$requestId}");
+        $this->assertSame('dnb', collect($capturedRequest->data())->firstWhere('name', 'gateway')['contents']);
+    }
+
+    public function test_sync_action_omits_gateway_field_for_ssm_rows(): void
+    {
+        config(['ssm_mock.local_admin_enabled' => true]);
+        $requestId = $this->seedRequest('191001000005', 'HICOM HOLDINGS BERHAD');
+        $this->app->bind(S3ObjectFetcher::class, fn () => new FakeS3ObjectFetcher([
+            'my-bucket/raw.json' => '{"getCompProfile":{}}',
+        ]));
+
+        $capturedRequest = null;
+        Http::fake(function ($request) use (&$capturedRequest) {
+            $capturedRequest = $request;
+
+            return Http::response(['caseKey' => 'hicom-holdings-berhad', 'status' => 'synced'], 200);
+        });
+
+        $this->actingAs(User::factory()->create())
+            ->post("/admin/sync-cases/{$requestId}/sync", ['idaman_version_ids' => []])
+            ->assertRedirect("/admin/sync-cases/{$requestId}");
+
+        $this->assertNull(collect($capturedRequest->data())->firstWhere('name', 'gateway'));
+    }
 }

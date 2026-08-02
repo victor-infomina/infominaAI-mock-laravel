@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AsiaverifyFixtureBuilder;
+use App\Services\DatasourceItemGateway;
 use App\Services\DevDbEntityRepository;
+use App\Services\DnbFixtureBuilder;
 use App\Services\SsmFixtureBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,6 +18,8 @@ class SyncCasesController extends Controller
     public function __construct(
         private readonly DevDbEntityRepository $repository,
         private readonly SsmFixtureBuilder $fixtureBuilder,
+        private readonly AsiaverifyFixtureBuilder $asiaverifyFixtureBuilder,
+        private readonly DnbFixtureBuilder $dnbFixtureBuilder,
     ) {
     }
 
@@ -45,11 +50,13 @@ class SyncCasesController extends Controller
 
         abort_if($row === null, 404);
 
-        $idamanDocuments = $this->repository->findIdamanDocuments($row->subject_reg_no);
+        $gateway = DatasourceItemGateway::gatewayFor($row->item ?? null);
+        $idamanDocuments = $gateway === 'ssm' ? $this->repository->findIdamanDocuments($row->subject_reg_no) : [];
 
         return view('sync-cases.show', [
             'requestId' => $requestId,
             'row' => $row,
+            'gateway' => $gateway,
             'idamanDocuments' => $idamanDocuments,
             'syncResult' => session('syncResult'),
         ]);
@@ -61,25 +68,33 @@ class SyncCasesController extends Controller
 
         abort_if($row === null, 404);
 
-        $selectedVersionIds = (array) $request->input('idaman_version_ids', []);
-        $idamanDocuments = array_values(array_filter(
-            $this->repository->findIdamanDocuments($row->subject_reg_no),
-            fn ($doc) => in_array($doc->version_id, $selectedVersionIds, true),
-        ));
-
+        $gateway = DatasourceItemGateway::gatewayFor($row->item ?? null);
         $caseKey = Str::slug($row->subject_name ?: $row->subject_reg_no ?: $row->id);
         $tempCasePath = sys_get_temp_dir().'/ssm-sync-'.uniqid().'/'.$caseKey;
 
-        $this->fixtureBuilder->assembleCase($tempCasePath, $row);
-        $this->fixtureBuilder->assembleIdamanDocuments($tempCasePath, $idamanDocuments, config('ssm_mock.s3_bucket'));
+        if ($gateway === 'asiaverify') {
+            $this->asiaverifyFixtureBuilder->assembleCase($tempCasePath, $row);
+        } elseif ($gateway === 'dnb') {
+            $this->dnbFixtureBuilder->assembleCase($tempCasePath, $row);
+        } else {
+            $selectedVersionIds = (array) $request->input('idaman_version_ids', []);
+            $idamanDocuments = array_values(array_filter(
+                $this->repository->findIdamanDocuments($row->subject_reg_no),
+                fn ($doc) => in_array($doc->version_id, $selectedVersionIds, true),
+            ));
+
+            $this->fixtureBuilder->assembleCase($tempCasePath, $row);
+            $this->fixtureBuilder->assembleIdamanDocuments($tempCasePath, $idamanDocuments, config('ssm_mock.s3_bucket'));
+        }
 
         $zipPath = $this->zipDirectory($tempCasePath, $caseKey);
+        $postFields = $gateway !== 'ssm' ? ['gateway' => $gateway] : [];
 
         $response = Http::withHeaders([
             'x-Gateway-APIKey' => config('ssm_mock.admin_sync_key'),
             'x-Gateway-APISecret' => config('ssm_mock.admin_sync_secret'),
         ])->attach('bundle', file_get_contents($zipPath), 'case.zip')
-            ->post(rtrim(config('ssm_mock.remote_url'), '/').'/admin-api/cases');
+            ->post(rtrim(config('ssm_mock.remote_url'), '/').'/admin-api/cases', $postFields);
 
         $result = $response->successful()
             ? 'synced: '.$response->json('caseKey')

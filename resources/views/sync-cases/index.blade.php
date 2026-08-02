@@ -23,6 +23,15 @@
                     <option value="llp" @selected($type === 'llp')>LLP</option>
                 </select>
             </div>
+            <div>
+                <label for="gateway" class="mb-1 block text-sm text-gray-600">Source</label>
+                <select name="gateway" id="gateway" class="rounded-md border-gray-300 text-sm shadow-sm">
+                    <option value="" @selected(!$gateway)>Any</option>
+                    <option value="ssm" @selected($gateway === 'ssm')>SSM</option>
+                    <option value="asiaverify" @selected($gateway === 'asiaverify')>AsiaVerify</option>
+                    <option value="dnb" @selected($gateway === 'dnb')>DNB</option>
+                </select>
+            </div>
             <button type="submit" class="rounded-md bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-700">Search</button>
         </form>
 
@@ -32,6 +41,7 @@
                     <th class="px-4 py-2">Name</th>
                     <th class="px-4 py-2">Reg No</th>
                     <th class="px-4 py-2">Type</th>
+                    <th class="px-4 py-2">Source</th>
                     <th class="px-4 py-2"></th>
                 </tr>
             </thead>
@@ -41,12 +51,13 @@
                         <td class="px-4 py-2">{{ $item->subject_name }}</td>
                         <td class="px-4 py-2">{{ $item->subject_reg_no }}</td>
                         <td class="px-4 py-2">{{ $item->type }}</td>
+                        <td class="px-4 py-2">{{ \App\Services\DatasourceItemGateway::labelFor($item->item ?? null) }}</td>
                         <td class="px-4 py-2 text-right">
                             <a href="/admin/sync-cases/{{ $item->id }}" class="text-blue-600 hover:text-blue-800">View</a>
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">No results.</td></tr>
+                    <tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">No results.</td></tr>
                 @endforelse
             </tbody>
         </table>

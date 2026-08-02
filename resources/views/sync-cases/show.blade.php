@@ -17,24 +17,26 @@
 
         <form method="POST" action="/admin/sync-cases/{{ $requestId }}/sync">
             @csrf
-            <h2 class="mb-2 text-sm font-semibold">Idaman documents</h2>
-            @if (count($idamanDocuments) > 0)
-                <label class="mb-2 block text-sm">
-                    <input type="checkbox" onclick="document.querySelectorAll('.idaman-checkbox').forEach(c => c.checked = this.checked)">
-                    Select all
-                </label>
-                <ul class="mb-4 space-y-1">
-                    @foreach ($idamanDocuments as $doc)
-                        <li class="text-sm">
-                            <label>
-                                <input type="checkbox" class="idaman-checkbox" name="idaman_version_ids[]" value="{{ $doc->version_id }}">
-                                {{ $doc->version_id }} — Form {{ $doc->form }} ({{ $doc->document_date }})
-                            </label>
-                        </li>
-                    @endforeach
-                </ul>
-            @else
-                <p class="mb-4 text-sm text-gray-500">No Idaman documents available for this entity.</p>
+            @if ($gateway === 'ssm')
+                <h2 class="mb-2 text-sm font-semibold">Idaman documents</h2>
+                @if (count($idamanDocuments) > 0)
+                    <label class="mb-2 block text-sm">
+                        <input type="checkbox" onclick="document.querySelectorAll('.idaman-checkbox').forEach(c => c.checked = this.checked)">
+                        Select all
+                    </label>
+                    <ul class="mb-4 space-y-1">
+                        @foreach ($idamanDocuments as $doc)
+                            <li class="text-sm">
+                                <label>
+                                    <input type="checkbox" class="idaman-checkbox" name="idaman_version_ids[]" value="{{ $doc->version_id }}">
+                                    {{ $doc->version_id }} — Form {{ $doc->form }} ({{ $doc->document_date }})
+                                </label>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="mb-4 text-sm text-gray-500">No Idaman documents available for this entity.</p>
+                @endif
             @endif
 
             <button type="submit" class="rounded-md bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-700">
