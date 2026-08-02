@@ -59,6 +59,17 @@ class DnbSearchTest extends TestCase
         $response->assertSee('201912345A', false);
     }
 
+    public function test_singapore_search_by_reg_no_is_case_insensitive(): void
+    {
+        $xml = $this->wrapWithAuth('<ENQUIRY><PRODUCT>XCNS</PRODUCT><COMPANY_SEARCH_TYPE>reg</COMPANY_SEARCH_TYPE><COMPANY_SEARCH_VALUE>201912345A</COMPANY_SEARCH_VALUE></ENQUIRY>');
+
+        $response = $this->postXml($xml);
+
+        $response->assertOk();
+        $response->assertSee('Acme Pte Ltd', false);
+        $response->assertSee('201912345A', false);
+    }
+
     public function test_singapore_search_by_name(): void
     {
         $xml = $this->wrapWithAuth('<ENQUIRY><PRODUCT>XCNS</PRODUCT><COMPANY_SEARCH_TYPE>NAME</COMPANY_SEARCH_TYPE><COMPANY_SEARCH_VALUE>acme</COMPANY_SEARCH_VALUE></ENQUIRY>');

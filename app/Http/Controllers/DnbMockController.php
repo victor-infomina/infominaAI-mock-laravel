@@ -60,7 +60,7 @@ class DnbMockController extends Controller
             return $this->xmlResponse('<REPORT><List-CompanyB2b></List-CompanyB2b></REPORT>');
         }
 
-        $matches = $type === 'REG'
+        $matches = strtoupper($type) === 'REG'
             ? array_filter([$this->cases->findByRegNo('singapore', $value)])
             : $this->cases->searchByName('singapore', $value);
 
