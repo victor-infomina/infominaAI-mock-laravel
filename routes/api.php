@@ -2,10 +2,13 @@
 
 use App\Http\Controllers\AsiaverifyMockController;
 use App\Http\Controllers\CaseUploadController;
+use App\Http\Controllers\DnbMockController;
 use App\Http\Controllers\LlmMockController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
+
+Route::middleware('verify.dnb')->post('/dnb', [DnbMockController::class, 'handle']);
 
 Route::post('/token/create', [AsiaverifyMockController::class, 'createToken']);
 
