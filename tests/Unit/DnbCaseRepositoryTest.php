@@ -86,4 +86,22 @@ class DnbCaseRepositoryTest extends TestCase
         $this->assertCount(1, $matches);
         $this->assertSame('acme-sg', $matches[0]['key']);
     }
+
+    public function test_find_by_reg_no_does_not_match_a_partial_substring(): void
+    {
+        $this->makeCase('acme-sg', ['country' => 'singapore', 'regNo' => '201912345A', 'companyName' => 'Acme Pte Ltd']);
+
+        $repo = new DnbCaseRepository($this->fixturesPath);
+
+        $this->assertNull($repo->findByRegNo('singapore', '201912345'));
+    }
+
+    public function test_find_by_company_id_does_not_match_a_partial_substring(): void
+    {
+        $this->makeCase('acme-id', ['country' => 'indonesia', 'companyId' => 'ID12345', 'companyName' => 'Acme Indonesia']);
+
+        $repo = new DnbCaseRepository($this->fixturesPath);
+
+        $this->assertNull($repo->findByCompanyId('indonesia', 'ID123'));
+    }
 }
