@@ -20,8 +20,35 @@ class DnbMockController extends Controller
         return match ($product) {
             'XCNS' => $this->searchSingapore($xml),
             'XICNS' => $this->searchIndonesia($xml),
+            'BCP' => $this->profileSingapore($xml),
+            'XICDS' => $this->profileIndonesia($xml),
             default => $this->xmlResponse('<REPORT></REPORT>'),
         };
+    }
+
+    private function profileSingapore(string $xml): Response
+    {
+        $regNo = $this->extractXmlValue($xml, 'SUBJECT_IDNO');
+        $case = $regNo !== null ? $this->cases->findByRegNo('singapore', $regNo) : null;
+
+        return $this->profileResponse($case);
+    }
+
+    private function profileIndonesia(string $xml): Response
+    {
+        $companyId = $this->extractXmlValue($xml, 'COMPANY_ID');
+        $case = $companyId !== null ? $this->cases->findByCompanyId('indonesia', $companyId) : null;
+
+        return $this->profileResponse($case);
+    }
+
+    private function profileResponse(?array $case): Response
+    {
+        if ($case === null || ! is_file($case['path'].'/profile.xml')) {
+            return $this->xmlResponse('<REPORT></REPORT>');
+        }
+
+        return $this->xmlResponse(file_get_contents($case['path'].'/profile.xml'));
     }
 
     private function searchSingapore(string $xml): Response
