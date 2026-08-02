@@ -1,10 +1,13 @@
 <?php
 
+use App\Http\Controllers\AsiaverifyMockController;
 use App\Http\Controllers\CaseUploadController;
 use App\Http\Controllers\LlmMockController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/token/create', [AsiaverifyMockController::class, 'createToken']);
 
 Route::middleware('verify.gateway')->group(function () {
     Route::post('/get-search-entity', [SsmMockController::class, 'searchEntity']);
