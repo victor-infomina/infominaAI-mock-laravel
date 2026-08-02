@@ -22,15 +22,17 @@ class SyncCasesController extends Controller
     {
         $query = (string) $request->query('q', '');
         $type = $request->query('type') ?: null;
+        $gateway = $request->query('gateway') ?: null;
         $page = max(1, (int) $request->query('page', 1));
 
         $result = $query !== ''
-            ? $this->repository->search($query, $type, $page)
+            ? $this->repository->search($query, $type, $gateway, $page)
             : ['total' => 0, 'items' => []];
 
         return view('sync-cases.index', [
             'query' => $query,
             'type' => $type,
+            'gateway' => $gateway,
             'page' => $page,
             'total' => $result['total'],
             'items' => $result['items'],

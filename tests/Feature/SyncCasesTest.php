@@ -29,20 +29,24 @@ class SyncCasesTest extends TestCase
         ]);
     }
 
-    private function seedRequest(string $regNo, string $name): string
+    private function seedRequest(string $regNo, string $name, string $item = 'company_profile_v2', string $rawS3Url = 'https://my-bucket.s3.r.amazonaws.com/raw.json'): string
     {
         $requestId = (string) Str::uuid();
         $transactionId = (string) Str::uuid();
+        $datasourceId = (string) Str::uuid();
 
         DB::connection('be_pgsql')->table('datasource_requests')->insert([
             'id' => $requestId, 'subject_name' => $name, 'subject_reg_no' => $regNo, 'type' => 'company', 'created_at' => now(),
+        ]);
+        DB::connection('be_pgsql')->table('datasources')->insert([
+            'id' => $datasourceId, 'item' => $item, 'source' => 'ssm',
         ]);
         DB::connection('be_pgsql')->table('datasource_transactions')->insert([
             'id' => $transactionId, 'request_id_id' => $requestId,
         ]);
         DB::connection('be_pgsql')->table('datasource_purchased')->insert([
             'id' => (string) Str::uuid(), 'transaction_id_id' => $transactionId,
-            'raw_s3_url' => 'https://my-bucket.s3.r.amazonaws.com/raw.json', 'report_id' => null,
+            'raw_s3_url' => $rawS3Url, 'report_id' => null, 'datasource_id' => $datasourceId,
         ]);
 
         return $requestId;

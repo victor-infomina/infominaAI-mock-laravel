@@ -19,7 +19,7 @@ class DevDbEntityRepositoryTest extends TestCase
         $this->setUpDevDbSchema();
     }
 
-    private function seedRequest(string $id, string $name, string $regNo, string $type, ?string $rawS3Url): void
+    private function seedRequest(string $id, string $name, string $regNo, string $type, ?string $rawS3Url, string $item = 'company_profile_v2'): void
     {
         DB::connection('be_pgsql')->table('datasource_requests')->insert([
             'id' => $id,
@@ -33,6 +33,13 @@ class DevDbEntityRepositoryTest extends TestCase
             return;
         }
 
+        $datasourceId = (string) Str::uuid();
+        DB::connection('be_pgsql')->table('datasources')->insert([
+            'id' => $datasourceId,
+            'item' => $item,
+            'source' => 'ssm',
+        ]);
+
         $transactionId = (string) Str::uuid();
         DB::connection('be_pgsql')->table('datasource_transactions')->insert([
             'id' => $transactionId,
@@ -43,6 +50,7 @@ class DevDbEntityRepositoryTest extends TestCase
             'transaction_id_id' => $transactionId,
             'raw_s3_url' => $rawS3Url,
             'report_id' => null,
+            'datasource_id' => $datasourceId,
         ]);
     }
 
@@ -52,7 +60,7 @@ class DevDbEntityRepositoryTest extends TestCase
         $this->seedRequest((string) Str::uuid(), 'HICOM TRADING SDN BHD', '191001000006', 'business', 'https://b.s3.r.amazonaws.com/k2.json');
 
         $repo = new DevDbEntityRepository();
-        $result = $repo->search('hicom', 'company', 1, 20);
+        $result = $repo->search('hicom', 'company', null, 1, 20);
 
         $this->assertSame(1, $result['total']);
         $this->assertSame('HICOM HOLDINGS BERHAD', $result['items'][0]->subject_name);
@@ -63,7 +71,7 @@ class DevDbEntityRepositoryTest extends TestCase
         $this->seedRequest((string) Str::uuid(), 'NO DATA YET BERHAD', '000000000001', 'company', null);
 
         $repo = new DevDbEntityRepository();
-        $result = $repo->search('no data', null, 1, 20);
+        $result = $repo->search('no data', null, null, 1, 20);
 
         $this->assertSame(0, $result['total']);
     }
@@ -73,9 +81,32 @@ class DevDbEntityRepositoryTest extends TestCase
         $this->seedRequest((string) Str::uuid(), 'HICOM HOLDINGS BERHAD', '191001000005', 'company', 'https://b.s3.r.amazonaws.com/k1.json');
 
         $repo = new DevDbEntityRepository();
-        $result = $repo->search('191001000005', null, 1, 20);
+        $result = $repo->search('191001000005', null, null, 1, 20);
 
         $this->assertSame(1, $result['total']);
+    }
+
+    public function test_search_filters_by_gateway(): void
+    {
+        $this->seedRequest((string) Str::uuid(), 'ACME VIETNAM CO', '0101234567', 'company', 'https://b.s3.r.amazonaws.com/k1.json', 'vietnam_company_profile');
+        $this->seedRequest((string) Str::uuid(), 'ACME MALAYSIA SDN BHD', '191001000005', 'company', 'https://b.s3.r.amazonaws.com/k2.json', 'company_profile_v2');
+
+        $repo = new DevDbEntityRepository();
+        $result = $repo->search('acme', null, 'asiaverify', 1, 20);
+
+        $this->assertSame(1, $result['total']);
+        $this->assertSame('ACME VIETNAM CO', $result['items'][0]->subject_name);
+        $this->assertSame('vietnam_company_profile', $result['items'][0]->item);
+    }
+
+    public function test_search_excludes_unmapped_datasource_items(): void
+    {
+        $this->seedRequest((string) Str::uuid(), 'FUTURE ITEM CO', '0000000000', 'company', 'https://b.s3.r.amazonaws.com/k3.json', 'llp_profile_ctc');
+
+        $repo = new DevDbEntityRepository();
+        $result = $repo->search('future', null, null, 1, 20);
+
+        $this->assertSame(0, $result['total']);
     }
 
     public function test_find_idaman_documents_filters_ready_and_orders_by_date_desc(): void

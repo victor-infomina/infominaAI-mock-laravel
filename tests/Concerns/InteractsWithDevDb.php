@@ -32,11 +32,18 @@ trait InteractsWithDevDb
             $table->uuid('request_id_id');
         });
 
+        Schema::connection('be_pgsql')->create('datasources', function ($table) {
+            $table->uuid('id')->primary();
+            $table->string('item');
+            $table->string('source');
+        });
+
         Schema::connection('be_pgsql')->create('datasource_purchased', function ($table) {
             $table->uuid('id')->primary();
             $table->uuid('transaction_id_id');
             $table->string('raw_s3_url')->nullable();
             $table->uuid('report_id')->nullable();
+            $table->uuid('datasource_id')->nullable();
         });
 
         Schema::connection('be_pgsql')->create('datasource_reports', function ($table) {

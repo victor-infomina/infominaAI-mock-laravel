@@ -17,6 +17,7 @@ class SsmFixtureBuilder
             ->leftJoin('datasource_transactions as dt', 'dt.request_id_id', '=', 'dr.id')
             ->leftJoin('datasource_purchased as dp', 'dp.transaction_id_id', '=', 'dt.id')
             ->leftJoin('datasource_reports as drep', 'drep.id', '=', 'dp.report_id')
+            ->leftJoin('datasources as ds', 'ds.id', '=', 'dp.datasource_id')
             ->where('dr.id', $requestId)
             ->select([
                 'dr.id',
@@ -25,6 +26,7 @@ class SsmFixtureBuilder
                 'dr.type',
                 'dp.raw_s3_url',
                 'drep.s3_url as pdf_s3_url',
+                'ds.item as item',
             ])
             ->first();
 
