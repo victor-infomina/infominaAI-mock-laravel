@@ -11,6 +11,7 @@ Route::post('/token/create', [AsiaverifyMockController::class, 'createToken']);
 
 Route::middleware('verify.asiaverify.token')->group(function () {
     Route::get('/{country}/search', [AsiaverifyMockController::class, 'search'])->where('country', '[A-Za-z]{3}');
+    Route::post('/{country}/basic', [AsiaverifyMockController::class, 'basicProfile'])->where('country', '[A-Za-z]{3}');
 });
 
 Route::middleware('verify.gateway')->group(function () {

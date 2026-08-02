@@ -1,0 +1,15 @@
+{
+    "companyId": "0101234567",
+    "companyName": "Example Vietnam Trading Co",
+    "companyNameOg": "Cong Ty TNHH Vi Du",
+    "companyType": "Limited Liability Company",
+    "status": "Active",
+    "incorporationDate": "2015-03-12",
+    "address": "123 Example Street, Hanoi, Vietnam",
+    "addressNative": "123 Đường Ví Dụ, Hà Nội, Việt Nam",
+    "representativeName": "Nguyen Van Example",
+    "representativeTitle": "Director",
+    "businessActivities": "General trading",
+    "registeredCapital": "5000000000",
+    "stakeholders": []
+}

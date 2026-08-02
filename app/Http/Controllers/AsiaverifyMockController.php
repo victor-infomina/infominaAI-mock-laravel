@@ -79,6 +79,32 @@ class AsiaverifyMockController extends Controller
         ]);
     }
 
+    public function basicProfile(Request $request, string $country): JsonResponse
+    {
+        $input = (string) $request->input('input', '');
+        $case = $input !== '' ? $this->cases->find($country, $input) : null;
+
+        if ($case === null) {
+            return response()->json([
+                'code' => '404',
+                'message' => 'Company not found',
+                'result' => null,
+                'lastUpdated' => now()->toDateTimeString(),
+                'orderNo' => $this->generateOrderNo(),
+            ]);
+        }
+
+        $profile = json_decode(file_get_contents($case['path'].'/profile.json'), true);
+
+        return response()->json([
+            'code' => '200',
+            'message' => 'Request succeeded',
+            'result' => $profile,
+            'lastUpdated' => now()->toDateTimeString(),
+            'orderNo' => $this->generateOrderNo(),
+        ]);
+    }
+
     private function generateOrderNo(): string
     {
         return 'av'.now()->format('YmdHis').random_int(1000000000, 9999999999);
