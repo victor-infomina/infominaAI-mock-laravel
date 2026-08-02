@@ -21,7 +21,7 @@ class ApiClientController extends Controller
     {
         $validated = $request->validate([
             'label' => ['required', 'string', 'max:255'],
-            'purpose' => ['required', Rule::in(['gateway', 'admin_sync'])],
+            'purpose' => ['required', Rule::in(['gateway', 'admin_sync', 'asiaverify', 'dnb'])],
             'expires_in_days' => ['nullable', Rule::in(['', '30', '90', '180', '365'])],
         ]);
 

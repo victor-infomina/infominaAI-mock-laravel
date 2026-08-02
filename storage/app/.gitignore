@@ -3,4 +3,8 @@
 !public/
 !ssm-fixtures/
 !ssm-fixtures/**
+!asiaverify-fixtures/
+!asiaverify-fixtures/**
+!dnb-fixtures/
+!dnb-fixtures/**
 !.gitignore

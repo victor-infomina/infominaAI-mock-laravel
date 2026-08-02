@@ -1,10 +1,21 @@
 <?php
 
+use App\Http\Controllers\AsiaverifyMockController;
 use App\Http\Controllers\CaseUploadController;
+use App\Http\Controllers\DnbMockController;
 use App\Http\Controllers\LlmMockController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
+
+Route::middleware('verify.dnb')->post('/dnb', [DnbMockController::class, 'handle']);
+
+Route::post('/token/create', [AsiaverifyMockController::class, 'createToken']);
+
+Route::middleware('verify.asiaverify.token')->group(function () {
+    Route::get('/{country}/search', [AsiaverifyMockController::class, 'search'])->where('country', '[A-Za-z]{3}');
+    Route::post('/{country}/basic', [AsiaverifyMockController::class, 'basicProfile'])->where('country', '[A-Za-z]{3}');
+});
 
 Route::middleware('verify.gateway')->group(function () {
     Route::post('/get-search-entity', [SsmMockController::class, 'searchEntity']);

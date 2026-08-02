@@ -1,9 +1,12 @@
 # InfominaAI SSM Mock
 
-A Laravel mock of 7 SSM gateway endpoints, for pointing `infominaAI-BE`'s
-`SSM_API_URL` at during dev/staging instead of the real SSM API.
+A Laravel mock of the SSM, AsiaVerify, and DNB gateways, for pointing
+`infominaAI-BE`'s `SSM_API_URL`, `ASIAVERIFY_API_URL`, and `DNB_API_URL` at
+during dev/staging instead of the real APIs.
 
 ## Endpoints
+
+### SSM (Malaysia)
 
 - `POST /get-search-entity`
 - `POST /v2/get-company-profile-document`
@@ -13,6 +16,18 @@ A Laravel mock of 7 SSM gateway endpoints, for pointing `infominaAI-BE`'s
 - `POST /get-image-list` — Idaman document list for a `regNo` (no `entityType`; matches any case)
 - `POST /get-image` — a single Idaman document's content by `regNo` + `verId`
 - `GET /reports/{caseKey}.pdf` (used internally — `documentUrl` in the `get-order-document` response points here)
+
+### AsiaVerify (Vietnam / Thailand / China)
+
+- `POST /token/create` — issues a short-lived token, checked via `Authorization`/`Sign` headers against an `asiaverify`-purpose `ApiClient`.
+- `GET /{country}/search?keyword=...` — `{country}` is a 3-letter ISO code (`VNM`/`THA`/`CHN`); requires the `token` header from `/token/create`.
+- `POST /{country}/basic` — body `{"input": "<companyId>", "language": "ALL"}`; requires the same `token` header.
+
+All three always respond HTTP `200`; a `code` field inside the body (`"200"`/`"404"`/`"401"`) signals the outcome, matching the real gateway.
+
+### DNB (Singapore / Indonesia)
+
+- `POST /dnb` — single endpoint, raw XML in/out, routed internally by the body's `<PRODUCT>` tag (`XCNS`/`BCP` for Singapore, `XICNS`/`XICDS` for Indonesia). Credentials (`USER_ID`/`PASSWORD`) travel inside the XML body, checked against a `dnb`-purpose `ApiClient`; missing/invalid → real HTTP `401`. Otherwise always `200` with an XML body — an empty `<REPORT></REPORT>` or empty inner list means "not found".
 
 ## LLM mock endpoint (for transformer-api's LLM_DOMAIN)
 
@@ -60,10 +75,29 @@ Create a folder under `storage/app/ssm-fixtures/cases/{caseKey}/` containing:
 
 No rebuild or redeploy is needed — drop a new folder in and it's immediately queryable.
 
+## Adding an AsiaVerify test case
+
+Create a folder under `storage/app/asiaverify-fixtures/cases/{caseKey}/` containing:
+
+- `meta.json` — `{ "country": "VNM" | "THA" | "CHN", "companyId": "...", "companyName": "..." }`.
+- `profile.json` — the `result` object a real `basic` response would return for this company (not the full envelope — `code`/`orderNo`/`lastUpdated` are regenerated fresh on every request).
+
+There is no separate search fixture — search results are built from `meta.json` alone (`companyId`/`companyName`), matching how the SSM search endpoint already works.
+
+## Adding a DNB test case
+
+Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
+
+- `meta.json` — `{ "country": "singapore", "regNo": "...", "companyName": "..." }` or `{ "country": "indonesia", "companyId": "...", "companyName": "..." }`.
+- `profile.xml` — the full captured profile XML response, stored verbatim.
+
 ## Environment variables
 
 - `APP_URL` — must be this app's real public URL; it's used to build the `documentUrl` field `infominaAI-BE` fetches directly.
 - `SSM_MOCK_CASES_PATH` — optional override for the case-folder directory (defaults to `storage/app/ssm-fixtures/cases`).
+- `ASIAVERIFY_MOCK_CASES_PATH` — optional override for the AsiaVerify case-folder directory (defaults to `storage/app/asiaverify-fixtures/cases`).
+- `ASIAVERIFY_MOCK_TOKEN_TTL_SECONDS` — optional override for how long an issued AsiaVerify token stays valid in the cache (defaults to `3600`).
+- `DNB_MOCK_CASES_PATH` — optional override for the DNB case-folder directory (defaults to `storage/app/dnb-fixtures/cases`).
 - `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
 - `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool to pull Idaman document content.
 - `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool (see above); unused unless you're running `/admin/sync-cases` locally.

@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\AsiaverifyCaseRepository;
 use App\Services\AwsS3ObjectFetcher;
+use App\Services\DnbCaseRepository;
 use App\Services\S3ObjectFetcher;
 use App\Services\SsmCaseRepository;
 use Aws\S3\S3Client;
@@ -17,6 +19,14 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(SsmCaseRepository::class, function () {
             return new SsmCaseRepository(config('ssm_mock.cases_path'));
+        });
+
+        $this->app->bind(AsiaverifyCaseRepository::class, function () {
+            return new AsiaverifyCaseRepository(config('asiaverify_mock.cases_path'));
+        });
+
+        $this->app->bind(DnbCaseRepository::class, function () {
+            return new DnbCaseRepository(config('dnb_mock.cases_path'));
         });
 
         $this->app->bind(S3ObjectFetcher::class, function () {

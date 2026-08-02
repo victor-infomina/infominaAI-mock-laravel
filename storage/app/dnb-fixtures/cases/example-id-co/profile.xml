@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<REPORT>
+  <COMPANY>
+    <COMPANY_ID>ID12345</COMPANY_ID>
+    <COMPANY_NAME>Example Indonesia Trading</COMPANY_NAME>
+    <COMPANY_LOB>General trading</COMPANY_LOB>
+    <FULL_ADDRESSS>Jl. Contoh No. 1, Jakarta</FULL_ADDRESSS>
+    <REVISION_TYPE_NAME>New</REVISION_TYPE_NAME>
+    <REPORT_STATUS>Completed</REPORT_STATUS>
+    <REPORT_DATE>2024-01-01</REPORT_DATE>
+  </COMPANY>
+</REPORT>
