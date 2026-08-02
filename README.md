@@ -118,6 +118,13 @@ anymore.
   key/secret pairs that `infominaAI-BE` authenticates gateway requests with. A
   generated secret is shown only once, at creation time — copy it immediately and
   set it as `infominaAI-BE`'s `SSM_API_KEY` / `SSM_API_SECRET`.
+- **Sync Cases** (`/admin/sync-cases`, local instance only, `APP_ENV=local`):
+  searches real dev-DB purchases across all three gateways (SSM, AsiaVerify, DNB —
+  filterable by a "Source" dropdown) and pushes an assembled case bundle to the
+  shared-hosting instance's `POST /admin-api/cases`. Idaman document selection is
+  only available for SSM entities. The uploaded bundle carries a `gateway` field
+  (`asiaverify`/`dnb`) for non-SSM rows so the shared host extracts into the right
+  fixtures directory; SSM rows omit it, extracting into `ssm-fixtures/` as before.
 
 ## Deployment
 
