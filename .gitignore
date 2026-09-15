@@ -23,3 +23,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Local agent tooling / stale worktree copies
+/.claude
