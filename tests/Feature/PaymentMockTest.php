@@ -24,6 +24,54 @@ class PaymentMockTest extends TestCase
         return hash_hmac('sha256', self::SECRET.$statusId.$orderId.$transactionId.$msg, self::SECRET);
     }
 
+    /** Hash the FE puts on the hosted-form submission (PaymentUtils.generateHash). */
+    private function submissionHash(string $detail, string $amount, string $orderId): string
+    {
+        return hash_hmac('sha256', self::SECRET.$detail.$amount.$orderId, self::SECRET);
+    }
+
+    public function test_payment_page_marks_valid_submission_hash_as_verified(): void
+    {
+        $response = $this->post('/payment/756173209342181', [
+            'order_id' => 'order-123',
+            'amount' => '12.50',
+            'detail' => 'SSM company profile',
+            'hash' => $this->submissionHash('SSM company profile', '12.50', 'order-123'),
+        ]);
+
+        $response->assertOk();
+        $response->assertSee('Submission hash verified');
+        $response->assertDontSee('Submission hash mismatch');
+    }
+
+    public function test_payment_page_warns_on_wrong_submission_hash(): void
+    {
+        $response = $this->post('/payment/756173209342181', [
+            'order_id' => 'order-123',
+            'amount' => '12.50',
+            'detail' => 'SSM company profile',
+            'hash' => $this->submissionHash('SSM company profile', '99.99', 'order-123'),
+        ]);
+
+        $response->assertOk();
+        $response->assertSee('Submission hash mismatch');
+        $response->assertSee('real Senangpay would reject');
+        // Still usable: the outcome form is rendered.
+        $response->assertSee('action="'.url('/payment/756173209342181/complete').'"', false);
+    }
+
+    public function test_payment_page_warns_on_missing_submission_hash(): void
+    {
+        $response = $this->post('/payment/756173209342181', [
+            'order_id' => 'order-123',
+            'amount' => '12.50',
+            'detail' => 'SSM company profile',
+        ]);
+
+        $response->assertOk();
+        $response->assertSee('Submission hash missing');
+    }
+
     public function test_generate_hash_matches_senangpay_callback_formula(): void
     {
         $response = $this->postJson('/payment/generate-hash', [

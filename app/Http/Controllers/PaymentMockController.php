@@ -21,8 +21,11 @@ use Illuminate\View\View;
  *      {return_url}/payment/result?status_id=&order_id=&transaction_id=&msg=&hash=
  *      exactly as Senangpay's return_url redirect does.
  *
- * Hash formula (both directions, see infominaAI-BE PaymentGatewayService):
- *   HMAC-SHA256(key, key + status_id + order_id + transaction_id + msg)
+ * Hash formulas (see infominaAI-BE PaymentGatewayService / FE PaymentUtils):
+ *   submission (FE -> gateway): HMAC-SHA256(key, key + detail + amount + order_id)
+ *   callback  (gateway -> BE):  HMAC-SHA256(key, key + status_id + order_id + transaction_id + msg)
+ * The submission hash is checked like the real gateway does, but a mismatch
+ * only shows a warning on the page so the tester can still drive the flow.
  */
 class PaymentMockController extends Controller
 {
@@ -57,6 +60,7 @@ class PaymentMockController extends Controller
         }
 
         return view('payment-mock', [
+            'submission' => $this->checkSubmissionHash($request),
             'merchantId' => $merchantId,
             'orderId' => (string) $request->input('order_id', ''),
             'transactionId' => $this->newTransactionId(),
@@ -134,6 +138,27 @@ class PaymentMockController extends Controller
         }
 
         return $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
+    }
+
+    /** @return array{state: 'verified'|'mismatch'|'missing', expected: ?string} */
+    private function checkSubmissionHash(Request $request): array
+    {
+        $given = (string) $request->input('hash', '');
+        if ($given === '') {
+            return ['state' => 'missing', 'expected' => null];
+        }
+
+        $key = (string) config('services.senangpay.secret_key');
+        $expected = hash_hmac(
+            'sha256',
+            $key.$request->input('detail', '').$request->input('amount', '').$request->input('order_id', ''),
+            $key,
+        );
+
+        return [
+            'state' => hash_equals($expected, $given) ? 'verified' : 'mismatch',
+            'expected' => $expected,
+        ];
     }
 
     private function hash(string $statusId, string $orderId, string $transactionId, string $msg): string

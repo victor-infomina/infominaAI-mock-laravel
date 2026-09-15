@@ -45,6 +45,9 @@ the same hosted-form protocol, so BE/FE need no code change beyond selecting the
 
 - `POST /payment/{merchantId}` — the FE form-POSTs the Senangpay fields here
   (`order_id`, `amount`, `detail`, `name`, `email`, `hash`, optional `return_url`).
+  Verifies the FE's submission hash (`HMAC-SHA256(key, key+detail+amount+order_id)`) the
+  way the real gateway does, but only shows a green/red banner rather than rejecting, so a
+  broken FE hash is visible without blocking the test.
   Renders a page where the tester picks the outcome (`1` success, `0` failed,
   `2` pending authorization) and confirms the frontend origin to return to. That origin
   is auto-detected from the browser's `Origin`/`Referer` headers on the cross-origin form
