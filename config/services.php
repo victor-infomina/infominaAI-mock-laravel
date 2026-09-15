@@ -28,6 +28,15 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
+    // Senangpay-protocol payment mock (see PaymentMockController). The secret
+    // must equal infominaAI-BE's SENANGPAY_SECRET_KEY on the environment that
+    // points its `mock` payment gateway row at this app, since the BE verifies
+    // the callback hash with its own key.
+    'senangpay' => [
+        'secret_key' => env('SENANGPAY_SECRET_KEY'),
+        'redirect_url' => env('MOCK_REDIRECT_URL'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

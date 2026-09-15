@@ -37,6 +37,33 @@ All three always respond HTTP `200`; a `code` field inside the body (`"200"`/`"4
   - Any other `{modelOp}` → a generic fallback response (still `200`, not an error).
   - To use: point `transformer-api`'s `services/ssm/utils/.env_ssm` → `LLM_DOMAIN` at this app's public URL instead of a real LLM host or a locally-run mock.
 
+## Payment gateway mock (Senangpay protocol)
+
+Stands in for Senangpay so `infominaAI-BE`'s `mock` payment gateway row can point at
+this deployed app instead of the localhost-only NestJS mock (`infominaAI-mock`). Speaks
+the same hosted-form protocol, so BE/FE need no code change beyond selecting the row.
+
+- `POST /payment/{merchantId}` — the FE form-POSTs the Senangpay fields here
+  (`order_id`, `amount`, `detail`, `name`, `email`, `hash`, optional `return_url`).
+  Renders a page where the tester picks the outcome (`1` success, `0` failed,
+  `2` pending authorization) and confirms the frontend origin to return to.
+- `POST /payment/{merchantId}/complete` — signs the callback params and `302`s the
+  browser to `{return_url}/payment/result?status_id=&order_id=&transaction_id=&msg=&hash=`,
+  exactly like Senangpay's return-URL redirect. The FE then POSTs those to BE's
+  `/payment/update`, which verifies the hash with its own `SENANGPAY_SECRET_KEY`.
+- `POST /payment/generate-hash` — JSON `{statusId, orderId, transactionId, msg}` → `{hash}`;
+  handy for scripting callbacks. Hash is `HMAC-SHA256(key, key+status_id+order_id+transaction_id+msg)`.
+
+No auth on any of these — the browser posts straight from the FE, as with the real
+gateway. All three answer `503` until `SENANGPAY_SECRET_KEY` is set. Not mocked:
+Senangpay's `apiv1/query_order_status` polling API (BE's pending-payment cron tolerates
+the `404`; unpaid orders still time out after an hour).
+
+To use: insert a `payment_gateway` row in the BE database with `name='mock'`,
+`environment='sandbox'`, `url=<this app's public URL>`, any `merchant_id`, and have
+the BE select it (today the gateway name is hardcoded to `senangpay` in the three
+`saveDatasourcePayment` copies, so that needs the DB-driven provider selection first).
+
 ## Adding a test case (preferred: Sync Cases tool)
 
 The preferred way to add a case is the **Sync Cases** admin tool, which pulls a real
@@ -98,6 +125,8 @@ Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
 - `ASIAVERIFY_MOCK_CASES_PATH` — optional override for the AsiaVerify case-folder directory (defaults to `storage/app/asiaverify-fixtures/cases`).
 - `ASIAVERIFY_MOCK_TOKEN_TTL_SECONDS` — optional override for how long an issued AsiaVerify token stays valid in the cache (defaults to `3600`).
 - `DNB_MOCK_CASES_PATH` — optional override for the DNB case-folder directory (defaults to `storage/app/dnb-fixtures/cases`).
+- `SENANGPAY_SECRET_KEY` — required by the payment mock; must equal the `SENANGPAY_SECRET_KEY` of the `infominaAI-BE` instance that points its `mock` gateway row here, since that BE verifies the callback hash.
+- `MOCK_REDIRECT_URL` — optional default frontend origin pre-filled on the mock payment page (e.g. `https://dev-aiexe.infomina.ai`); the FE's `return_url` form field, when sent, takes precedence and the tester can edit it on the page.
 - `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
 - `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool to pull Idaman document content.
 - `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool (see above); unused unless you're running `/admin/sync-cases` locally.

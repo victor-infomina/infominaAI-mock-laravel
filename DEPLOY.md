@@ -17,6 +17,33 @@ The generated `ADMIN_EMAIL` / `ADMIN_PASSWORD` are printed at the end; save them
 step 4 — they log into the admin UI, not `infominaAI-BE`. Pass your own instead of a
 random password with `ADMIN_EMAIL=... ADMIN_PASSWORD=... APP_URL=... ./build-release.sh`.
 
+To also enable the payment gateway mock (see `README.md`), pass its env at build time so
+it lands in the baked `.env` (the cPanel target has no shell to add it afterward):
+
+    SENANGPAY_SECRET_KEY=<key the target infominaAI-BE verifies with> \
+    MOCK_REDIRECT_URL=https://<frontend-origin> \
+    APP_URL=https://<your-domain> ./build-release.sh
+
+## 1b. Upgrading an existing deployment
+
+The zip contains a **fresh** `database/database.sqlite` (empty API-credential table, new
+admin password) and a new `.env`. Extracting it over a live install therefore wipes every
+credential generated at `/tokens`, and `infominaAI-BE`'s `SSM_API_KEY`/`SSM_API_SECRET`
+stop working. Before extracting:
+
+1. In File Manager, rename the live `~/laravel-ssm-mock/database/database.sqlite` to
+   `database.sqlite.keep`.
+2. Extract the new zip over the folder.
+3. Delete the freshly extracted `database/database.sqlite` and rename
+   `database.sqlite.keep` back. Existing credentials and the admin login keep working;
+   the admin password printed by the build is then irrelevant.
+4. Case folders under `storage/app/*-fixtures/cases/` that were added on the server are
+   untouched by the extract (only same-named committed files are overwritten).
+
+If a release adds migrations, run them by uploading the zip's fresh sqlite instead and
+re-generating credentials — or diff the two schemas first; there is no shell to run
+`php artisan migrate` on the host.
+
 ## 2. Upload and extract
 
 1. In cPanel File Manager, create a folder **outside** `public_html`, e.g. `~/laravel-ssm-mock/`.
@@ -42,6 +69,15 @@ In cPanel > Domains (or Subdomains), create/edit the subdomain for `APP_URL` and
        SSM_API_SECRET=<secret from the token you just generated>
 
    The secret is only shown once at generation time — copy it immediately.
+
+4a. **(Optional) Point infominaAI-BE's payment gateway at the payment mock.** In the
+target BE's database:
+
+    update payment_gateway set url='https://<your-domain>'
+     where name='senangpay' and environment='sandbox';
+
+Revert by setting `url` back to `https://sandbox.senangpay.my`. The BE reads this row per
+purchase, no restart needed. Never do this on the `live` row / a production BE.
 
 4b. **(Optional) Enable the Sync Cases tool for this deployment.** If you'll be adding
 cases via the local Sync Cases admin UI (`/admin/sync-cases`, see `README.md`) instead
