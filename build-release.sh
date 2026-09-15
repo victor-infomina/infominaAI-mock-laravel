@@ -10,11 +10,12 @@
 # Optional env vars:
 #   ADMIN_EMAIL, ADMIN_PASSWORD            - fixed values instead of random/default ones
 #                                             for the seeded admin account
-#   SENANGPAY_SECRET_KEY, MOCK_REDIRECT_URL - baked into the production .env for the
-#                                             payment mock (see README). The key must
-#                                             equal the SENANGPAY_SECRET_KEY of the
-#                                             infominaAI-BE instance that will point its
-#                                             payment_gateway row at this deployment.
+#   SENANGPAY_SECRET_KEYS, MOCK_REDIRECT_URL - baked into the production .env for the
+#                                             payment mock (see README). KEYS is
+#                                             `frontend-host=secret;...`, one per BE
+#                                             environment allowed to use the mock; each
+#                                             secret must equal that BE's
+#                                             SENANGPAY_SECRET_KEY.
 #   SKIP_TESTS=1                           - skip the pre-build test run
 #   ALLOW_DIRTY=1                          - build even with uncommitted changes
 #                                             (uncommitted/untracked files are never
@@ -68,10 +69,10 @@ APP_KEY=$APP_KEY
 APP_DEBUG=false
 APP_URL=$APP_URL
 EOF
-if [[ -n "${SENANGPAY_SECRET_KEY:-}" ]]; then
-  printf 'SENANGPAY_SECRET_KEY=%s\n' "$SENANGPAY_SECRET_KEY" >> "$BUILD_DIR/.env"
+if [[ -n "${SENANGPAY_SECRET_KEYS:-}" ]]; then
+  printf 'SENANGPAY_SECRET_KEYS="%s"\n' "$SENANGPAY_SECRET_KEYS" >> "$BUILD_DIR/.env"
 else
-  echo "warn: SENANGPAY_SECRET_KEY not set - payment mock endpoints will answer 503 until it is added to .env on the server" >&2
+  echo "warn: SENANGPAY_SECRET_KEYS not set - payment mock endpoints will answer 503 until it is added to .env on the server" >&2
 fi
 if [[ -n "${MOCK_REDIRECT_URL:-}" ]]; then
   printf 'MOCK_REDIRECT_URL=%s\n' "$MOCK_REDIRECT_URL" >> "$BUILD_DIR/.env"

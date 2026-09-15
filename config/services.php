@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\SenangpayKeys;
+
 return [
 
     /*
@@ -28,12 +30,13 @@ return [
         'key' => env('RESEND_KEY'),
     ],
 
-    // Senangpay-protocol payment mock (see PaymentMockController). The secret
-    // must equal infominaAI-BE's SENANGPAY_SECRET_KEY on the environment that
-    // points its `mock` payment gateway row at this app, since the BE verifies
-    // the callback hash with its own key.
+    // Senangpay-protocol payment mock (see PaymentMockController). One secret
+    // per frontend host (localhost / dev / staging); each must equal the
+    // SENANGPAY_SECRET_KEY of the infominaAI-BE serving that frontend, since
+    // that BE verifies the callback hash with its own key. Hosts not listed
+    // here may not use the payment mock at all.
     'senangpay' => [
-        'secret_key' => env('SENANGPAY_SECRET_KEY'),
+        'keys' => SenangpayKeys::parse(env('SENANGPAY_SECRET_KEYS')),
         'redirect_url' => env('MOCK_REDIRECT_URL'),
     ],
 

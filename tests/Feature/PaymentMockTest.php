@@ -13,21 +13,122 @@ class PaymentMockTest extends TestCase
 {
     private const SECRET = 'test-senangpay-secret';
 
+    private const DEV_SECRET = 'dev-senangpay-secret';
+
+    private const STAGING_SECRET = 'staging-senangpay-secret';
+
     protected function setUp(): void
     {
         parent::setUp();
-        config(['services.senangpay.secret_key' => self::SECRET]);
+        // One key per allowed frontend host; the map is also the allowlist.
+        config([
+            'services.senangpay.keys' => [
+                'localhost' => self::SECRET,
+                'dev-aiexe.infomina.ai' => self::DEV_SECRET,
+                'staging-aiexe.infomina.ai' => self::STAGING_SECRET,
+            ],
+            // Fallback frontend origin when the browser sent no Origin/Referer.
+            'services.senangpay.redirect_url' => 'http://localhost:4300',
+        ]);
     }
 
-    private function senangpayHash(string $statusId, string $orderId, string $transactionId, string $msg): string
+    private function senangpayHash(string $statusId, string $orderId, string $transactionId, string $msg, string $key = self::SECRET): string
     {
-        return hash_hmac('sha256', self::SECRET.$statusId.$orderId.$transactionId.$msg, self::SECRET);
+        return hash_hmac('sha256', $key.$statusId.$orderId.$transactionId.$msg, $key);
     }
 
     /** Hash the FE puts on the hosted-form submission (PaymentUtils.generateHash). */
-    private function submissionHash(string $detail, string $amount, string $orderId): string
+    private function submissionHash(string $detail, string $amount, string $orderId, string $key = self::SECRET): string
     {
-        return hash_hmac('sha256', self::SECRET.$detail.$amount.$orderId, self::SECRET);
+        return hash_hmac('sha256', $key.$detail.$amount.$orderId, $key);
+    }
+
+    public function test_page_verifies_submission_hash_with_the_key_of_the_requesting_frontend_host(): void
+    {
+        $response = $this->withHeaders(['Origin' => 'https://dev-aiexe.infomina.ai'])
+            ->post('/payment/756173209342181', [
+                'order_id' => 'order-123',
+                'amount' => '12.50',
+                'detail' => 'SSM company profile',
+                'hash' => $this->submissionHash('SSM company profile', '12.50', 'order-123', self::DEV_SECRET),
+            ]);
+
+        $response->assertOk();
+        $response->assertSee('Submission hash verified');
+    }
+
+    public function test_page_rejects_a_frontend_host_that_has_no_configured_key(): void
+    {
+        $response = $this->withHeaders(['Origin' => 'https://aiexe.infomina.ai'])
+            ->post('/payment/756173209342181', ['order_id' => 'order-123']);
+
+        $response->assertForbidden();
+        $response->assertJsonPath('error', fn (string $e) => str_contains($e, 'aiexe.infomina.ai'));
+    }
+
+    public function test_complete_signs_callback_with_the_key_of_the_return_url_host(): void
+    {
+        $response = $this->post('/payment/756173209342181/complete', [
+            'order_id' => 'order-123',
+            'transaction_id' => 'txn-456',
+            'status_id' => '1',
+            'return_url' => 'https://staging-aiexe.infomina.ai',
+        ]);
+
+        $response->assertRedirect();
+        parse_str(parse_url($response->headers->get('Location'), PHP_URL_QUERY), $query);
+        $this->assertSame(
+            $this->senangpayHash('1', 'order-123', 'txn-456', 'Payment_was_successful', self::STAGING_SECRET),
+            $query['hash'],
+        );
+    }
+
+    public function test_complete_refuses_to_redirect_to_a_host_that_is_not_allowed(): void
+    {
+        $response = $this->post('/payment/756173209342181/complete', [
+            'order_id' => 'order-123',
+            'transaction_id' => 'txn-456',
+            'status_id' => '1',
+            'return_url' => 'https://evil.example.com',
+        ]);
+
+        $response->assertForbidden();
+    }
+
+    public function test_generate_hash_uses_the_key_for_the_given_origin(): void
+    {
+        $response = $this->postJson('/payment/generate-hash', [
+            'origin' => 'https://dev-aiexe.infomina.ai',
+            'statusId' => '1',
+            'orderId' => 'order-123',
+            'transactionId' => 'txn-456',
+            'msg' => 'Payment_was_successful',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('hash', $this->senangpayHash('1', 'order-123', 'txn-456', 'Payment_was_successful', self::DEV_SECRET));
+    }
+
+    public function test_generate_hash_without_any_origin_is_forbidden(): void
+    {
+        config(['services.senangpay.redirect_url' => null]);
+
+        $response = $this->postJson('/payment/generate-hash', [
+            'statusId' => '1',
+            'orderId' => 'order-123',
+            'transactionId' => 'txn-456',
+            'msg' => 'Payment_was_successful',
+        ]);
+
+        $response->assertForbidden();
+    }
+
+    public function test_host_matching_ignores_case_and_port(): void
+    {
+        $response = $this->withHeaders(['Origin' => 'http://LOCALHOST:4300'])
+            ->post('/payment/756173209342181', ['order_id' => 'order-123']);
+
+        $response->assertOk();
     }
 
     public function test_payment_page_marks_valid_submission_hash_as_verified(): void
@@ -74,7 +175,7 @@ class PaymentMockTest extends TestCase
 
     public function test_generate_hash_matches_senangpay_callback_formula(): void
     {
-        $response = $this->postJson('/payment/generate-hash', [
+        $response = $this->withHeaders(['Origin' => 'http://localhost:4300'])->postJson('/payment/generate-hash', [
             'statusId' => '1',
             'orderId' => 'order-123',
             'transactionId' => 'txn-456',
@@ -208,9 +309,9 @@ class PaymentMockTest extends TestCase
         $response->assertStatus(422);
     }
 
-    public function test_missing_secret_key_returns_service_unavailable(): void
+    public function test_no_configured_keys_returns_service_unavailable(): void
     {
-        config(['services.senangpay.secret_key' => null]);
+        config(['services.senangpay.keys' => []]);
 
         $response = $this->postJson('/payment/generate-hash', [
             'statusId' => '1',
@@ -220,6 +321,6 @@ class PaymentMockTest extends TestCase
         ]);
 
         $response->assertStatus(503);
-        $response->assertJsonPath('error', fn (string $e) => str_contains($e, 'SENANGPAY_SECRET_KEY'));
+        $response->assertJsonPath('error', fn (string $e) => str_contains($e, 'SENANGPAY_SECRET_KEYS'));
     }
 }

@@ -60,8 +60,14 @@ the same hosted-form protocol, so BE/FE need no code change beyond selecting the
 - `POST /payment/generate-hash` — JSON `{statusId, orderId, transactionId, msg}` → `{hash}`;
   handy for scripting callbacks. Hash is `HMAC-SHA256(key, key+status_id+order_id+transaction_id+msg)`.
 
-No auth on any of these — the browser posts straight from the FE, as with the real
-gateway. All three answer `503` until `SENANGPAY_SECRET_KEY` is set. Not mocked:
+No credentials on any of these — the browser posts straight from the FE, as with the
+real gateway. Access is instead restricted by frontend host: the FE is identified from
+the `return_url` field / `Origin` / `Referer`, and only hosts listed in
+`SENANGPAY_SECRET_KEYS` are served (`403` otherwise). That same map supplies the secret
+used for that host, so one deployment signs correctly for local, dev and staging, each
+of whose BE has its own key. All three endpoints answer `503` until the map is set.
+`POST /payment/generate-hash` accepts an optional `origin` field to pick the key when
+called from a script. Not mocked:
 Senangpay's `apiv1/query_order_status` polling API (BE's pending-payment cron tolerates
 the `404`; unpaid orders still time out after an hour).
 
@@ -131,7 +137,7 @@ Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
 - `ASIAVERIFY_MOCK_CASES_PATH` — optional override for the AsiaVerify case-folder directory (defaults to `storage/app/asiaverify-fixtures/cases`).
 - `ASIAVERIFY_MOCK_TOKEN_TTL_SECONDS` — optional override for how long an issued AsiaVerify token stays valid in the cache (defaults to `3600`).
 - `DNB_MOCK_CASES_PATH` — optional override for the DNB case-folder directory (defaults to `storage/app/dnb-fixtures/cases`).
-- `SENANGPAY_SECRET_KEY` — required by the payment mock; must equal the `SENANGPAY_SECRET_KEY` of the `infominaAI-BE` instance that points its `mock` gateway row here, since that BE verifies the callback hash.
+- `SENANGPAY_SECRET_KEYS` — required by the payment mock: `frontend-host=secret` pairs separated by `;` (e.g. `localhost=…;dev-aiexe.infomina.ai=…;staging-aiexe.infomina.ai=…`). Each secret must equal the `SENANGPAY_SECRET_KEY` of the `infominaAI-BE` serving that frontend, since that BE verifies the callback hash. Hosts not listed cannot use the mock. Hostnames are matched case-insensitively, ignoring port.
 - `MOCK_REDIRECT_URL` — optional fallback frontend origin for the mock payment page, used only when the browser sent neither `Origin` nor `Referer` (HTTPS→HTTP downgrade, or a scripted caller) and no `return_url` field was posted. Normally unnecessary: the origin is detected from the request. The tester can always edit it on the page.
 - `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
 - `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool to pull Idaman document content.

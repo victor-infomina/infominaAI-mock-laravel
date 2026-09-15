@@ -20,9 +20,13 @@ random password with `ADMIN_EMAIL=... ADMIN_PASSWORD=... APP_URL=... ./build-rel
 To also enable the payment gateway mock (see `README.md`), pass its env at build time so
 it lands in the baked `.env` (the cPanel target has no shell to add it afterward):
 
-    SENANGPAY_SECRET_KEY=<key the target infominaAI-BE verifies with> \
-    MOCK_REDIRECT_URL=https://<frontend-origin> \
+    SENANGPAY_SECRET_KEYS='localhost=<local BE key>;dev-aiexe.infomina.ai=<dev BE key>;staging-aiexe.infomina.ai=<staging BE key>' \
     APP_URL=https://<your-domain> ./build-release.sh
+
+Only the listed frontend hosts can use the payment mock, and each is signed with its own
+BE's key, so one deployment serves local, dev and staging. `MOCK_REDIRECT_URL` may be
+added as a fallback for callers that send no `Origin`/`Referer`; the browser flow does
+not need it.
 
 ## 1b. Upgrading an existing deployment
 
