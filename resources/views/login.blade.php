@@ -1,39 +1,34 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Log in — SSM Mock</title>
-    @vite(['resources/css/app.css'])
-</head>
-<body class="bg-gray-50 text-gray-900">
-    <div class="flex min-h-screen items-center justify-center px-6">
-        <div class="w-full max-w-sm rounded-md border border-gray-200 bg-white p-8">
-            <h1 class="mb-6 text-lg font-semibold">SSM Mock Admin</h1>
-
-            @if ($errors->any())
-                <div class="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-                    {{ $errors->first() }}
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('login') }}" class="space-y-4">
-                @csrf
-                <div>
-                    <label for="email" class="mb-1 block text-sm text-gray-600">Email</label>
-                    <input type="email" name="email" id="email" required autofocus
-                        class="w-full rounded-md border-gray-300 text-sm shadow-sm" value="{{ old('email') }}">
-                </div>
-                <div>
-                    <label for="password" class="mb-1 block text-sm text-gray-600">Password</label>
-                    <input type="password" name="password" id="password" required
-                        class="w-full rounded-md border-gray-300 text-sm shadow-sm">
-                </div>
-                <button type="submit" class="w-full rounded-md bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-700">
-                    Log in
-                </button>
-            </form>
+<x-layout title="Log in">
+    <div class="flex min-h-screen flex-col items-center justify-center px-6 py-16">
+        <div class="mb-2 text-center">
+            <p class="eyebrow text-ink/40">Infomina</p>
+            <h1 class="mt-1 font-mono text-lg font-bold uppercase tracking-wide">SSM Mock Gateway</h1>
         </div>
+
+        <div class="folder-card mt-8 w-full max-w-sm">
+            <div class="folder-card__tab">Access</div>
+            <div class="folder-card__body">
+                @if ($errors->any())
+                    <div class="notice-error mb-5">{{ $errors->first() }}</div>
+                @endif
+
+                <form method="POST" action="{{ route('login') }}" class="space-y-5">
+                    @csrf
+                    <div>
+                        <label for="email" class="field-label">Email</label>
+                        <input type="email" name="email" id="email" required autofocus class="input" value="{{ old('email') }}">
+                    </div>
+                    <div>
+                        <label for="password" class="field-label">Password</label>
+                        <input type="password" name="password" id="password" required class="input">
+                    </div>
+                    <button type="submit" class="btn-primary w-full">Log in</button>
+                </form>
+            </div>
+        </div>
+
+        <p class="eyebrow mt-8 max-w-sm text-center text-[10px] text-ink/35">
+            Specimen credentials only — this gateway never touches production data.
+        </p>
     </div>
-</body>
-</html>
+</x-layout>

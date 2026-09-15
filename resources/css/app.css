@@ -1,3 +1,120 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    body {
+        @apply bg-ledger text-ink;
+    }
+
+    :focus-visible {
+        outline: 2px solid theme('colors.wire');
+        outline-offset: 2px;
+    }
+}
+
+@layer components {
+    /* Mono, uppercase, letter-spaced label — used for eyebrows, table heads, buttons */
+    .eyebrow {
+        @apply font-mono text-[11px] font-semibold uppercase tracking-[0.14em];
+    }
+
+    /* A folder-tab card: leave mt-8 on the wrapper so the tab has room to sit above the border */
+    .folder-card {
+        @apply relative border border-rule bg-paper;
+    }
+
+    .folder-card__tab {
+        @apply eyebrow absolute -top-8 left-5 border border-b-0 border-rule bg-paper px-3 py-1.5 text-ink/60;
+    }
+
+    .folder-card__body {
+        @apply p-6 sm:p-8;
+    }
+
+    /* Signature element: a rotated ink-stamp watermark marking generated/sensitive material as fake */
+    .specimen {
+        @apply eyebrow pointer-events-none absolute -right-3 -top-3 rotate-[-8deg] select-none border-2 border-stamp/60 bg-paper px-2 py-1 text-[10px] text-stamp/80;
+    }
+
+    .specimen-standalone {
+        @apply eyebrow inline-block -rotate-6 select-none border-2 border-stamp/50 px-5 py-4 text-center leading-relaxed text-stamp/60;
+    }
+
+    .field-label {
+        @apply eyebrow mb-1.5 block text-ink/50;
+    }
+
+    .input {
+        @apply w-full border border-rule bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink/30 focus:border-wire focus:outline-none;
+    }
+
+    .btn {
+        @apply eyebrow inline-flex items-center justify-center gap-2 border px-4 py-2.5 transition-colors;
+    }
+
+    .btn-primary {
+        @apply btn border-ink bg-ink text-paper hover:bg-ink/85;
+    }
+
+    .btn-danger {
+        @apply eyebrow text-stamp/80 transition-colors hover:text-stamp;
+    }
+
+    .notice {
+        @apply border px-4 py-3 text-sm;
+    }
+
+    .notice-info {
+        @apply notice border-wire/40 bg-wire/[0.06] text-ink;
+    }
+
+    .notice-warn {
+        @apply notice border-amber/50 bg-amber/[0.08] text-ink;
+    }
+
+    .notice-error {
+        @apply notice border-stamp/50 bg-stamp/[0.06] text-stamp;
+    }
+
+    /* Perforated tear-line, used to separate a one-time secret into "keep this" sections */
+    .perforated {
+        @apply border-t border-dashed border-ink/25;
+    }
+
+    .badge {
+        @apply eyebrow inline-flex items-center border px-2 py-0.5 text-[10px];
+    }
+
+    .badge-active {
+        @apply badge border-wire text-wire;
+    }
+
+    .badge-revoked {
+        @apply badge border-ink/25 text-ink/45;
+    }
+
+    .badge-expired {
+        @apply badge border-stamp text-stamp;
+    }
+
+    .badge-local {
+        @apply badge border-amber text-amber;
+    }
+
+    .ledger-table {
+        @apply w-full border-collapse text-sm;
+    }
+
+    .ledger-table thead th {
+        @apply eyebrow border-b-2 border-ink px-3 py-2 text-left text-ink/60;
+    }
+
+    .ledger-table tbody td {
+        @apply border-b border-rule px-3 py-3 align-middle;
+    }
+
+    .ledger-table tbody tr:hover {
+        @apply bg-ink/[0.025];
+    }
+}

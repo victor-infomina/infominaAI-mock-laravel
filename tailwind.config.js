@@ -11,8 +11,18 @@ export default {
     ],
     theme: {
         extend: {
+            colors: {
+                ink: '#14181C',
+                ledger: '#EEF0E9',
+                paper: '#FBFBF8',
+                rule: '#CBCFC2',
+                wire: '#2F6F5E',
+                stamp: '#B23A2E',
+                amber: '#B8842A',
+            },
             fontFamily: {
-                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                sans: ['"IBM Plex Sans"', ...defaultTheme.fontFamily.sans],
+                mono: ['"IBM Plex Mono"', ...defaultTheme.fontFamily.mono],
             },
         },
     },

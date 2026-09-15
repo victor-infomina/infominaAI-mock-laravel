@@ -1,55 +1,78 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Sync Cases — SSM Mock</title>
-    @vite(['resources/css/app.css'])
-</head>
-<body class="bg-gray-50 text-gray-900">
-    <div class="mx-auto max-w-4xl px-6 py-10">
-        <h1 class="mb-6 text-xl font-semibold">Sync Cases</h1>
+<x-layout title="Sync Cases">
+    <div class="mx-auto max-w-4xl px-6 py-12">
+        <div class="mb-2 flex items-center gap-3">
+            <p class="eyebrow text-ink/40">Registry Search</p>
+            <span class="badge-local">Local only</span>
+        </div>
+        <h1 class="mb-8 font-mono text-2xl font-bold">Sync Cases</h1>
 
-        <form method="GET" action="/admin/sync-cases" class="mb-8 flex flex-wrap items-end gap-4">
-            <div>
-                <label for="q" class="mb-1 block text-sm text-gray-600">Search (name or regNo)</label>
-                <input type="text" name="q" id="q" value="{{ $query }}" class="rounded-md border-gray-300 text-sm shadow-sm">
+        <div class="folder-card mb-10 mt-8">
+            <div class="folder-card__tab">Find an entity</div>
+            <div class="folder-card__body">
+                <form method="GET" action="/admin/sync-cases" class="flex flex-wrap items-end gap-5">
+                    <div class="min-w-[220px] flex-1">
+                        <label for="q" class="field-label">Name or reg. no.</label>
+                        <input type="text" name="q" id="q" value="{{ $query }}" class="input" placeholder="e.g. Infomina Sdn Bhd">
+                    </div>
+                    <div>
+                        <label for="type" class="field-label">Type</label>
+                        <select name="type" id="type" class="input">
+                            <option value="" @selected(!$type)>Any</option>
+                            <option value="company" @selected($type === 'company')>Company</option>
+                            <option value="business" @selected($type === 'business')>Business</option>
+                            <option value="llp" @selected($type === 'llp')>LLP</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary">Search</button>
+                </form>
             </div>
-            <div>
-                <label for="type" class="mb-1 block text-sm text-gray-600">Type</label>
-                <select name="type" id="type" class="rounded-md border-gray-300 text-sm shadow-sm">
-                    <option value="" @selected(!$type)>Any</option>
-                    <option value="company" @selected($type === 'company')>Company</option>
-                    <option value="business" @selected($type === 'business')>Business</option>
-                    <option value="llp" @selected($type === 'llp')>LLP</option>
-                </select>
-            </div>
-            <button type="submit" class="rounded-md bg-gray-900 px-4 py-2 text-sm text-white hover:bg-gray-700">Search</button>
-        </form>
+        </div>
 
-        <table class="w-full overflow-hidden rounded-md border border-gray-200 text-sm">
-            <thead class="bg-gray-100 text-left">
+        @if ($query !== '')
+            <p class="eyebrow mb-2 text-ink/40">{{ $total }} match{{ $total === 1 ? '' : 'es' }} for "{{ $query }}"</p>
+        @endif
+
+        <table class="ledger-table">
+            <thead>
                 <tr>
-                    <th class="px-4 py-2">Name</th>
-                    <th class="px-4 py-2">Reg No</th>
-                    <th class="px-4 py-2">Type</th>
-                    <th class="px-4 py-2"></th>
+                    <th>Name</th>
+                    <th>Reg No</th>
+                    <th>Type</th>
+                    <th></th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200 bg-white">
+            <tbody>
                 @forelse ($items as $item)
                     <tr>
-                        <td class="px-4 py-2">{{ $item->subject_name }}</td>
-                        <td class="px-4 py-2">{{ $item->subject_reg_no }}</td>
-                        <td class="px-4 py-2">{{ $item->type }}</td>
-                        <td class="px-4 py-2 text-right">
-                            <a href="/admin/sync-cases/{{ $item->id }}" class="text-blue-600 hover:text-blue-800">View</a>
-                        </td>
+                        <td class="font-medium">{{ $item->subject_name }}</td>
+                        <td class="font-mono text-xs">{{ $item->subject_reg_no }}</td>
+                        <td class="font-mono text-xs uppercase text-ink/55">{{ $item->type }}</td>
+                        <td class="text-right"><a href="/admin/sync-cases/{{ $item->id }}" class="eyebrow text-wire hover:text-ink">Open →</a></td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">No results.</td></tr>
+                    <tr>
+                        <td colspan="4" class="py-8 text-center text-ink/40">
+                            {{ $query !== '' ? 'No matches.' : 'Search by company name or registration number to begin.' }}
+                        </td>
+                    </tr>
                 @endforelse
             </tbody>
         </table>
+
+        @if ($total > 20)
+            <div class="mt-4 flex items-center justify-between">
+                <div class="eyebrow">
+                    @if ($page > 1)
+                        <a class="text-ink/60 hover:text-wire" href="?q={{ urlencode($query) }}&type={{ $type }}&page={{ $page - 1 }}">← Prev</a>
+                    @endif
+                </div>
+                <div class="eyebrow text-ink/40">Page {{ $page }} of {{ (int) ceil($total / 20) }}</div>
+                <div class="eyebrow">
+                    @if ($page < ceil($total / 20))
+                        <a class="text-ink/60 hover:text-wire" href="?q={{ urlencode($query) }}&type={{ $type }}&page={{ $page + 1 }}">Next →</a>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
-</body>
-</html>
+</x-layout>
