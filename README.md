@@ -46,7 +46,10 @@ the same hosted-form protocol, so BE/FE need no code change beyond selecting the
 - `POST /payment/{merchantId}` — the FE form-POSTs the Senangpay fields here
   (`order_id`, `amount`, `detail`, `name`, `email`, `hash`, optional `return_url`).
   Renders a page where the tester picks the outcome (`1` success, `0` failed,
-  `2` pending authorization) and confirms the frontend origin to return to.
+  `2` pending authorization) and confirms the frontend origin to return to. That origin
+  is auto-detected from the browser's `Origin`/`Referer` headers on the cross-origin form
+  POST, so one deployment serves dev and staging without configuration; an explicit
+  `return_url` field wins, and `MOCK_REDIRECT_URL` is only the fallback.
 - `POST /payment/{merchantId}/complete` — signs the callback params and `302`s the
   browser to `{return_url}/payment/result?status_id=&order_id=&transaction_id=&msg=&hash=`,
   exactly like Senangpay's return-URL redirect. The FE then POSTs those to BE's
@@ -126,7 +129,7 @@ Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
 - `ASIAVERIFY_MOCK_TOKEN_TTL_SECONDS` — optional override for how long an issued AsiaVerify token stays valid in the cache (defaults to `3600`).
 - `DNB_MOCK_CASES_PATH` — optional override for the DNB case-folder directory (defaults to `storage/app/dnb-fixtures/cases`).
 - `SENANGPAY_SECRET_KEY` — required by the payment mock; must equal the `SENANGPAY_SECRET_KEY` of the `infominaAI-BE` instance that points its `mock` gateway row here, since that BE verifies the callback hash.
-- `MOCK_REDIRECT_URL` — optional default frontend origin pre-filled on the mock payment page (e.g. `https://dev-aiexe.infomina.ai`); the FE's `return_url` form field, when sent, takes precedence and the tester can edit it on the page.
+- `MOCK_REDIRECT_URL` — optional fallback frontend origin for the mock payment page, used only when the browser sent neither `Origin` nor `Referer` (HTTPS→HTTP downgrade, or a scripted caller) and no `return_url` field was posted. Normally unnecessary: the origin is detected from the request. The tester can always edit it on the page.
 - `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
 - `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool to pull Idaman document content.
 - `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool (see above); unused unless you're running `/admin/sync-cases` locally.

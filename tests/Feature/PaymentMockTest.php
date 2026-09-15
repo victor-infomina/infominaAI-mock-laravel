@@ -69,6 +69,47 @@ class PaymentMockTest extends TestCase
         $response->assertSee('value="https://dev-aiexe.infomina.ai"', false);
     }
 
+    public function test_payment_page_detects_frontend_origin_from_origin_header(): void
+    {
+        $response = $this->withHeaders(['Origin' => 'https://dev-aiexe.infomina.ai'])
+            ->post('/payment/756173209342181', ['order_id' => 'order-123']);
+
+        $response->assertOk();
+        $response->assertSee('value="https://dev-aiexe.infomina.ai"', false);
+    }
+
+    public function test_payment_page_falls_back_to_referer_origin_without_origin_header(): void
+    {
+        $response = $this->withHeaders(['Referer' => 'https://staging-aiexe.infomina.ai/search/purchase-summary?x=1'])
+            ->post('/payment/756173209342181', ['order_id' => 'order-123']);
+
+        $response->assertOk();
+        $response->assertSee('value="https://staging-aiexe.infomina.ai"', false);
+    }
+
+    public function test_explicit_return_url_field_wins_over_detected_origin(): void
+    {
+        $response = $this->withHeaders(['Origin' => 'https://dev-aiexe.infomina.ai'])
+            ->post('/payment/756173209342181', [
+                'order_id' => 'order-123',
+                'return_url' => 'http://localhost:4300',
+            ]);
+
+        $response->assertOk();
+        $response->assertSee('value="http://localhost:4300"', false);
+    }
+
+    public function test_null_origin_header_is_ignored_in_favour_of_configured_fallback(): void
+    {
+        config(['services.senangpay.redirect_url' => 'https://dev-aiexe.infomina.ai']);
+
+        $response = $this->withHeaders(['Origin' => 'null'])
+            ->post('/payment/756173209342181', ['order_id' => 'order-123']);
+
+        $response->assertOk();
+        $response->assertSee('value="https://dev-aiexe.infomina.ai"', false);
+    }
+
     public function test_complete_redirects_to_return_url_with_signed_success_params(): void
     {
         $response = $this->post('/payment/756173209342181/complete', [

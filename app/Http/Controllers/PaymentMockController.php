@@ -64,7 +64,7 @@ class PaymentMockController extends Controller
             'detail' => (string) $request->input('detail', ''),
             'name' => (string) $request->input('name', ''),
             'email' => (string) $request->input('email', ''),
-            'returnUrl' => (string) ($request->input('return_url') ?: config('services.senangpay.redirect_url', '')),
+            'returnUrl' => $this->resolveReturnOrigin($request),
             'statuses' => self::STATUS_MESSAGES,
         ]);
     }
@@ -98,6 +98,42 @@ class PaymentMockController extends Controller
         ]);
 
         return redirect()->away(rtrim($data['return_url'], '/').'/payment/result?'.$query);
+    }
+
+    /**
+     * Where to send the browser after "payment". Precedence: an explicit
+     * return_url form field, then the frontend origin the browser reports on a
+     * cross-origin form POST (Origin, else Referer trimmed to its origin), then
+     * MOCK_REDIRECT_URL. Browsers send neither header on an HTTPS->HTTP
+     * downgrade (Origin may be the literal "null"), hence the env fallback.
+     */
+    private function resolveReturnOrigin(Request $request): string
+    {
+        if (filled($request->input('return_url'))) {
+            return (string) $request->input('return_url');
+        }
+
+        foreach ([$request->headers->get('Origin'), $request->headers->get('Referer')] as $candidate) {
+            if ($origin = $this->originOf($candidate)) {
+                return $origin;
+            }
+        }
+
+        return (string) config('services.senangpay.redirect_url', '');
+    }
+
+    private function originOf(?string $url): ?string
+    {
+        if (blank($url) || $url === 'null') {
+            return null;
+        }
+
+        $parts = parse_url($url);
+        if (! isset($parts['scheme'], $parts['host']) || ! in_array($parts['scheme'], ['http', 'https'], true)) {
+            return null;
+        }
+
+        return $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
     }
 
     private function hash(string $statusId, string $orderId, string $transactionId, string $msg): string
