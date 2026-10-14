@@ -71,7 +71,7 @@ class SyncCasesTest extends TestCase
         $requestId = $this->seedRequest('191001000005', 'HICOM HOLDINGS BERHAD');
         DB::connection('be_pgsql')->table('idaman_document')->insert([
             'id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V1',
-            'form' => '557', 'document_date' => '2024-01-01', 's3_url' => 'ssm/k1.json', 'status' => 'READY',
+            'form' => '557', 'document_date' => '2024-01-01', 's3_url' => 'ssm/k1.json', 'status' => 'ready',
         ]);
 
         $response = $this->actingAs(User::factory()->create())->get("/admin/sync-cases/{$requestId}");
@@ -116,8 +116,8 @@ class SyncCasesTest extends TestCase
 
         $envelope = fn (string $content) => json_encode(['getImage' => ['docContent' => base64_encode($content)]]);
         DB::connection('be_pgsql')->table('idaman_document')->insert([
-            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V1', 'form' => '557', 'document_date' => '2024-01-01', 's3_url' => 'idaman/v1.json', 'status' => 'READY'],
-            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V2', 'form' => '49', 'document_date' => '2024-02-01', 's3_url' => 'idaman/v2.json', 'status' => 'READY'],
+            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V1', 'form' => '557', 'document_date' => '2024-01-01', 's3_url' => 'idaman/v1.json', 'status' => 'ready'],
+            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V2', 'form' => '49', 'document_date' => '2024-02-01', 's3_url' => 'idaman/v2.json', 'status' => 'ready'],
         ]);
 
         $this->app->bind(S3ObjectFetcher::class, fn () => new FakeS3ObjectFetcher([
