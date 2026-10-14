@@ -189,12 +189,13 @@ class ImportSsmCasesCommandTest extends TestCase
             ->expectsOutputToContain('2 idaman document(s)')
             ->assertExitCode(0);
 
+        $list = json_decode(file_get_contents($this->casesPath.'/acme-sdn-bhd/idaman/list.json'), true);
         $this->assertSame(
             [
-                ['verId' => 'V1', 'formType' => '557', 'dateFiler' => '2024-01-01'],
-                ['verId' => 'V2', 'formType' => '24', 'dateFiler' => '2023-06-30'],
+                ['verId' => 'V1', 'formType' => '557', 'documentDate' => '20240101', 'companyNo' => '123456-A'],
+                ['verId' => 'V2', 'formType' => '24', 'documentDate' => '20230630', 'companyNo' => '123456-A'],
             ],
-            json_decode(file_get_contents($this->casesPath.'/acme-sdn-bhd/idaman/list.json'), true),
+            array_map(fn ($e) => ['verId' => $e['verId'], 'formType' => $e['formType'], 'documentDate' => $e['documentDate'], 'companyNo' => $e['companyNo']], $list),
         );
         $this->assertSame('tiff-v1', file_get_contents($this->casesPath.'/acme-sdn-bhd/idaman/V1.tiff'));
         $this->assertSame('tiff-v2', file_get_contents($this->casesPath.'/acme-sdn-bhd/idaman/V2.tiff'));

@@ -193,7 +193,7 @@ Create a folder under `storage/app/ssm-fixtures/cases/{caseKey}/` containing:
 - One of `company-profile.json` / `business-profile.json` / `llp-profile.json`, matching `entityType` — the raw JSON body SSM would return for that endpoint (its `requestRefNo` field is rewritten to `{caseKey}` automatically on every response).
 - `report.pdf` — the report file returned via `get-order-document` → `/reports/{caseKey}.pdf`.
 - Optionally, an `idaman/` subfolder for Idaman document endpoints:
-  - `idaman/list.json` — a JSON array of `{ "verId": "...", "formType": "...", "dateFiler": "..." }` entries.
+  - `idaman/list.json` — a JSON array of `documentInfos` entries as the real gateway returns them. The fields the BE and FE read are `verId`, `formType` and `documentDate` (`YYYYMMDD`); `dateFiler` (ISO-8601, `+08:00`), `companyNo`, `imageName`, `receivedDate`, `totalPage`, `batchId`, `comments`, `sourceData`, `stateCode` complete the shape. A hand-written entry may give just `{ "verId", "formType", "dateFiler": "YYYY-MM-DD" }` — `documentDate` and the ISO `dateFiler` are derived when served.
   - `idaman/{verId}.<any-extension>` — the raw document content for each entry, base64-encoded automatically when served via `get-image`.
   - Cases without an `idaman/` folder simply have no Idaman documents — `get-image-list` returns a "not found" response for them.
 

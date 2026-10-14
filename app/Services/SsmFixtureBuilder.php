@@ -3,12 +3,11 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class SsmFixtureBuilder
 {
-    public function __construct(private readonly S3ObjectFetcher $fetcher)
-    {
-    }
+    public function __construct(private readonly S3ObjectFetcher $fetcher) {}
 
     public function findRequestRow(string $requestId): ?object
     {
@@ -61,13 +60,26 @@ class SsmFixtureBuilder
             throw new \RuntimeException("Could not create {$idamanDir}");
         }
 
+        $meta = json_decode((string) @file_get_contents("{$casePath}/meta.json"), true);
+        $companyNo = (string) ($meta['regNo'] ?? '');
         $list = [];
 
         foreach ($idamanRows as $row) {
+            // Mirror the real gateway's documentInfos entry shape; the BE and FE
+            // read documentDate (YYYYMMDD), formType and verId from it.
             $list[] = [
-                'verId' => $row->version_id,
-                'formType' => $row->form,
-                'dateFiler' => $row->document_date,
+                'batchId' => (string) Str::uuid(),
+                'comments' => '',
+                'companyNo' => $companyNo,
+                'dateFiler' => IdamanDocumentDates::iso((string) $row->document_date),
+                'documentDate' => IdamanDocumentDates::yyyymmdd((string) $row->document_date),
+                'formType' => (string) $row->form,
+                'imageName' => "{$row->version_id}.TIF",
+                'receivedDate' => IdamanDocumentDates::yyyymmdd((string) $row->document_date),
+                'sourceData' => '',
+                'stateCode' => '',
+                'totalPage' => '1',
+                'verId' => (string) $row->version_id,
             ];
 
             if (! $row->s3_url) {

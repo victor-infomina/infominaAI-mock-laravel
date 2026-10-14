@@ -53,6 +53,7 @@ class SsmFixtureBuilderTest extends TestCase
         ]);
         $builder = new SsmFixtureBuilder($fetcher);
         mkdir($this->casePath, 0777, true);
+        file_put_contents($this->casePath.'/meta.json', json_encode(['regNo' => '123456-A', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']));
 
         $idamanRows = [
             (object) [
@@ -66,7 +67,21 @@ class SsmFixtureBuilderTest extends TestCase
         $builder->assembleIdamanDocuments($this->casePath, $idamanRows, 'my-bucket');
 
         $list = json_decode(file_get_contents($this->casePath.'/idaman/list.json'), true);
-        $this->assertSame([['verId' => 'V1', 'formType' => '557', 'dateFiler' => '2024-01-01']], $list);
+        $this->assertCount(1, $list);
+        $entry = $list[0];
+        // The real gateway's documentInfos entry shape: the BE and FE read documentDate (YYYYMMDD).
+        $this->assertSame('V1', $entry['verId']);
+        $this->assertSame('557', $entry['formType']);
+        $this->assertSame('20240101', $entry['documentDate']);
+        $this->assertSame('20240101', $entry['receivedDate']);
+        $this->assertSame('2024-01-01T00:00:00+08:00', $entry['dateFiler']);
+        $this->assertSame('123456-A', $entry['companyNo']);
+        $this->assertSame('V1.TIF', $entry['imageName']);
+        $this->assertSame('1', $entry['totalPage']);
+        $this->assertSame('', $entry['comments']);
+        $this->assertSame('', $entry['stateCode']);
+        $this->assertSame('', $entry['sourceData']);
+        $this->assertNotEmpty($entry['batchId']);
         $this->assertSame('raw-tiff-bytes', file_get_contents($this->casePath.'/idaman/V1.tiff'));
     }
 
@@ -78,5 +93,20 @@ class SsmFixtureBuilderTest extends TestCase
         $builder->assembleIdamanDocuments($this->casePath, [], 'my-bucket');
 
         $this->assertFalse(is_dir($this->casePath.'/idaman'));
+    }
+
+    public function test_assemble_idaman_documents_accepts_datetime_document_date_from_the_dev_db(): void
+    {
+        $builder = new SsmFixtureBuilder(new FakeS3ObjectFetcher([]));
+        mkdir($this->casePath, 0777, true);
+        file_put_contents($this->casePath.'/meta.json', json_encode(['regNo' => '123456-A', 'companyName' => 'Acme', 'entityType' => 'company']));
+
+        $builder->assembleIdamanDocuments($this->casePath, [
+            (object) ['version_id' => 'V1', 'form' => '557', 'document_date' => '2024-01-01 00:00:00', 's3_url' => null],
+        ], 'my-bucket');
+
+        $entry = json_decode(file_get_contents($this->casePath.'/idaman/list.json'), true)[0];
+        $this->assertSame('20240101', $entry['documentDate']);
+        $this->assertSame('2024-01-01T00:00:00+08:00', $entry['dateFiler']);
     }
 }
