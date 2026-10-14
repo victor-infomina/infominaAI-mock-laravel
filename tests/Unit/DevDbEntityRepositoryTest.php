@@ -78,13 +78,13 @@ class DevDbEntityRepositoryTest extends TestCase
         $this->assertSame(1, $result['total']);
     }
 
-    public function test_find_idaman_documents_filters_ready_and_orders_by_date_desc(): void
+    public function test_find_idaman_documents_filters_lowercase_ready_status_as_the_be_writes_it_and_orders_by_date_desc(): void
     {
         DB::connection('be_pgsql')->table('idaman_document')->insert([
-            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V1', 'form' => '557', 'document_date' => '2023-01-01', 's3_url' => 'ssm/k1.json', 'status' => 'READY'],
-            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V2', 'form' => '49', 'document_date' => '2024-01-01', 's3_url' => 'ssm/k2.json', 'status' => 'READY'],
-            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V3', 'form' => '49', 'document_date' => '2024-06-01', 's3_url' => null, 'status' => 'NEW'],
-            ['id' => (string) Str::uuid(), 'entity_number' => 'other-reg-no', 'version_id' => 'V4', 'form' => '49', 'document_date' => '2024-06-01', 's3_url' => 'ssm/k4.json', 'status' => 'READY'],
+            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V1', 'form' => '557', 'document_date' => '2023-01-01', 's3_url' => 'ssm/k1.json', 'status' => 'ready'],
+            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V2', 'form' => '49', 'document_date' => '2024-01-01', 's3_url' => 'ssm/k2.json', 'status' => 'ready'],
+            ['id' => (string) Str::uuid(), 'entity_number' => '191001000005', 'version_id' => 'V3', 'form' => '49', 'document_date' => '2024-06-01', 's3_url' => null, 'status' => 'new'],
+            ['id' => (string) Str::uuid(), 'entity_number' => 'other-reg-no', 'version_id' => 'V4', 'form' => '49', 'document_date' => '2024-06-01', 's3_url' => 'ssm/k4.json', 'status' => 'ready'],
         ]);
 
         $repo = new DevDbEntityRepository();

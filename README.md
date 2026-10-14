@@ -162,7 +162,7 @@ have many documents. Export it from the same database with the header
               to_char(d.document_date, 'YYYY-MM-DD') as document_date,
               d.s3_url
        from idaman_document d
-       where d.status = 'READY'
+       where d.status = 'ready'                      -- the BE stores this lowercase
          and d.s3_url is not null
          and d.deleted_at is null
          and d.entity_number in ('199401031473', '...')   -- the reg_no values from the cases CSV

@@ -51,7 +51,7 @@ class DevDbEntityRepository
         return DB::connection('be_pgsql')
             ->table('idaman_document')
             ->where('entity_number', $regNo)
-            ->where('status', 'READY')
+            ->where('status', 'ready')
             ->whereNotNull('s3_url')
             ->whereNull('deleted_at')
             ->select(['id', 'version_id', 'form', 'document_date', 's3_url'])
