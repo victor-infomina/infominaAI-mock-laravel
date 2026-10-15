@@ -10,6 +10,7 @@ use App\Http\Controllers\SsmGateway\AuthController as SsmGatewayAuthController;
 use App\Http\Controllers\SsmGateway\CompanyController as SsmGatewayCompanyController;
 use App\Http\Controllers\SsmGateway\InvolvementController as SsmGatewayInvolvementController;
 use App\Http\Controllers\SsmGateway\OrderController as SsmGatewayOrderController;
+use App\Http\Controllers\SsmGateway\SupportController as SsmGatewaySupportController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
 
@@ -67,6 +68,8 @@ Route::prefix('ssm-gateway')->group(function () {
         Route::post('/payment/ssm-product', [SsmGatewayOrderController::class, 'payment']);
         Route::post('/order/init-thank-you-page', [SsmGatewayOrderController::class, 'initThankYouPage']);
         Route::post('/order/init-order-page', [SsmGatewayOrderController::class, 'initOrderPage']);
+        Route::post('/file/upload', [SsmGatewaySupportController::class, 'fileUpload']);
+        Route::post('/helpdesk/submit', [SsmGatewaySupportController::class, 'helpdeskSubmit']);
     });
 });
 
