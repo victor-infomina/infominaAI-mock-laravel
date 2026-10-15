@@ -8,6 +8,7 @@ use App\Http\Controllers\PaymentMockController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SsmGateway\AuthController as SsmGatewayAuthController;
 use App\Http\Controllers\SsmGateway\CompanyController as SsmGatewayCompanyController;
+use App\Http\Controllers\SsmGateway\InvolvementController as SsmGatewayInvolvementController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
 
@@ -49,12 +50,17 @@ Route::prefix('ssm-gateway')->group(function () {
     Route::get('/login', [SsmGatewayAuthController::class, 'loginPage']);
     Route::post('/user/login', [SsmGatewayAuthController::class, 'login']);
 
+    Route::get('/involvement-reports/{idValue}.pdf', [SsmGatewayInvolvementController::class, 'report'])
+        ->where('idValue', '[A-Za-z0-9_-]+')
+        ->name('ssm-gateway.involvement-report');
+
     Route::middleware('verify.ssm-gateway.token')->group(function () {
         Route::post('/point/get-balance', [SsmGatewayAuthController::class, 'balance']);
         Route::post('/company/search', [SsmGatewayCompanyController::class, 'search']);
         Route::post('/company/get-info', [SsmGatewayCompanyController::class, 'info']);
         Route::post('/product/list', [SsmGatewayCompanyController::class, 'productList']);
         Route::post('/product/list-by-company', [SsmGatewayCompanyController::class, 'productListByCompany']);
+        Route::post('/personal-involvement/submission', [SsmGatewayInvolvementController::class, 'submission']);
     });
 });
 
