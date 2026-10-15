@@ -142,6 +142,25 @@ class SsmCaseRepositoryTest extends TestCase
         $this->assertSame('V1', $documents[0]['verId']);
     }
 
+    public function test_idaman_documents_derives_document_date_for_hand_crafted_lists_that_only_have_date_filer(): void
+    {
+        $this->makeCase('acme-co', ['regNo' => 'ABC123', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);
+        $idamanDir = $this->fixturesPath.'/acme-co/idaman';
+        mkdir($idamanDir, 0777, true);
+        file_put_contents($idamanDir.'/list.json', json_encode([
+            ['verId' => 'V1', 'formType' => '557', 'dateFiler' => '2024-01-01'],
+            ['verId' => 'V2', 'formType' => '49', 'dateFiler' => '2023-05-01T00:00:00+08:00', 'documentDate' => '20230501'],
+        ]));
+
+        $repo = new SsmCaseRepository($this->fixturesPath);
+        $documents = $repo->idamanDocuments($repo->find('acme-co'));
+
+        $this->assertSame('20240101', $documents[0]['documentDate']);
+        $this->assertSame('2024-01-01T00:00:00+08:00', $documents[0]['dateFiler']);
+        $this->assertSame('20230501', $documents[1]['documentDate']);
+        $this->assertSame('2023-05-01T00:00:00+08:00', $documents[1]['dateFiler']);
+    }
+
     public function test_idaman_document_file_returns_null_when_not_found(): void
     {
         $this->makeCase('acme-co', ['regNo' => 'ABC123', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);

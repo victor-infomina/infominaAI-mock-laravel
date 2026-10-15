@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\CaseBundlePusher;
 use App\Services\DevDbEntityRepository;
 use App\Services\SsmFixtureBuilder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -15,6 +15,7 @@ class SyncCasesController extends Controller
     public function __construct(
         private readonly DevDbEntityRepository $repository,
         private readonly SsmFixtureBuilder $fixtureBuilder,
+        private readonly CaseBundlePusher $pusher,
     ) {
     }
 
@@ -71,38 +72,12 @@ class SyncCasesController extends Controller
         $this->fixtureBuilder->assembleCase($tempCasePath, $row);
         $this->fixtureBuilder->assembleIdamanDocuments($tempCasePath, $idamanDocuments, config('ssm_mock.s3_bucket'));
 
-        $zipPath = $this->zipDirectory($tempCasePath, $caseKey);
-
-        $response = Http::withHeaders([
-            'x-Gateway-APIKey' => config('ssm_mock.admin_sync_key'),
-            'x-Gateway-APISecret' => config('ssm_mock.admin_sync_secret'),
-        ])->attach('bundle', file_get_contents($zipPath), 'case.zip')
-            ->post(rtrim(config('ssm_mock.remote_url'), '/').'/admin-api/cases');
+        $response = $this->pusher->push($tempCasePath, $caseKey);
 
         $result = $response->successful()
             ? 'synced: '.$response->json('caseKey')
             : 'failed: '.$response->status().' '.$response->body();
 
         return redirect("/admin/sync-cases/{$requestId}")->with('syncResult', $result);
-    }
-
-    private function zipDirectory(string $directory, string $topDirName): string
-    {
-        $zipPath = sys_get_temp_dir().'/'.uniqid('sync-upload-', true).'.zip';
-        $zip = new \ZipArchive();
-        $zip->open($zipPath, \ZipArchive::CREATE);
-
-        $files = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($directory, \FilesystemIterator::SKIP_DOTS),
-        );
-
-        foreach ($files as $file) {
-            $relative = $topDirName.'/'.substr($file->getPathname(), strlen($directory) + 1);
-            $zip->addFile($file->getPathname(), $relative);
-        }
-
-        $zip->close();
-
-        return $zipPath;
     }
 }

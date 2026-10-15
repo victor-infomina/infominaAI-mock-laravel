@@ -97,6 +97,91 @@ wherever this app is actually deployed — no manual file assembly needed.
    `POST /admin-api/cases` on the deployed instance, which writes the case folder
    there directly — no rebuild/redeploy needed.
 
+### Bulk import from a CSV export (e.g. from the prod database)
+
+When the entities you want aren't in the dev DB, export them from whichever BE database
+has them and feed the CSV to `ssm:import-cases`. It needs no BE database connection —
+only the `SSM_S3_*` env vars (pointed at the bucket the exported URLs live in) and, for
+pushing, the same `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_*` env as the Sync Cases
+tool.
+
+1. Export a CSV with the header `company_name,reg_no,entity_type,raw_s3_url,pdf_s3_url`:
+
+       select distinct on (dr.subject_reg_no)
+              dr.subject_name   as company_name,
+              dr.subject_reg_no as reg_no,
+              lower(dr.type)    as entity_type,
+              dp.raw_s3_url,
+              drep.s3_url       as pdf_s3_url
+       from datasource_requests dr
+       join datasource_transactions dt on dt.request_id_id = dr.id
+       join datasource_purchased dp on dp.transaction_id_id = dt.id
+       join datasources ds on ds.id = dp.datasource_id
+       left join datasource_reports drep on drep.id = dp.report_id
+       where ds.item in ('company_profile_v2', 'business_profile_v2', 'llp_profile')
+         and dp.raw_s3_url is not null
+         and dp.deleted_at is null
+         and dp.purchase_date >= '2026-01-01'          -- adjust the date range
+         and dp.purchase_date <  '2026-02-01'
+       order by dr.subject_reg_no, dp.purchase_date desc
+       limit 50;
+
+   `distinct on (dr.subject_reg_no)` keeps one row per entity — the most recent
+   purchase in the range, because of the `purchase_date desc` ordering. The two
+   `purchase_date` bounds and the `limit` are the knobs to adjust per export.
+   The `ds.item` filter keeps only the three SSM profile products this mock serves
+   (`company_profile_v2`, `business_profile_v2`, `llp_profile`); the v1, CTC and
+   involvement products write a different JSON shape and are not served here.
+   `entity_type` must be `company`, `business` or `llp`. The URL columns accept the
+   full `https://{bucket}.s3.{region}.amazonaws.com/{key}` form stored in the DB or a
+   bare object key (expanded with `SSM_S3_BUCKET` / `SSM_S3_REGION`). `pdf_s3_url` may
+   be empty. Columns may appear in any order.
+
+2. Dry run locally — each row becomes a folder under the local cases path:
+
+       php artisan ssm:import-cases /path/to/export.csv
+
+3. Push to the deployed instance instead (same `POST /admin-api/cases` endpoint the
+   Sync Cases tool uses; an existing case with the same key is replaced):
+
+       php artisan ssm:import-cases /path/to/export.csv --push
+
+The CSV is validated up front, so a bad header or entity type fails before anything is
+downloaded. Download or push failures are reported per row, the remaining rows still
+run, and the exit code is non-zero if any row failed.
+
+#### Including Idaman documents
+
+Idaman documents come from a second CSV passed via `--idaman`, since one entity can
+have many documents. Export it from the same database with the header
+`reg_no,version_id,form,document_date,s3_url`:
+
+       select d.entity_number                      as reg_no,
+              d.version_id,
+              d.form,
+              to_char(d.document_date, 'YYYY-MM-DD') as document_date,
+              d.s3_url
+       from idaman_document d
+       where d.status = 'ready'                      -- the BE stores this lowercase
+         and d.s3_url is not null
+         and d.deleted_at is null
+         and d.entity_number in ('199401031473', '...')   -- the reg_no values from the cases CSV
+       order by d.entity_number, d.document_date desc;
+
+Then run either form with the extra option:
+
+       php artisan ssm:import-cases /path/to/export.csv --idaman=/path/to/idaman.csv
+       php artisan ssm:import-cases /path/to/export.csv --idaman=/path/to/idaman.csv --push
+
+Rows are matched to cases by `reg_no`, which must equal the cases CSV value exactly.
+Documents whose `reg_no` has no case row are reported as a warning and skipped. `s3_url`
+is the key of the stored `get-image` JSON envelope (the `docContent` inside is decoded
+to `idaman/{version_id}.tiff`); a full `https://...amazonaws.com/{key}` URL is reduced to
+its key, and the bucket is always `SSM_S3_BUCKET`. Both CSVs are validated before any
+download starts. A document download failure fails that entity's row (nothing partial is
+written), and the remaining rows still run. Without `--idaman`, behaviour is unchanged
+and cases are written without an `idaman/` folder.
+
 If you can't run this app locally against the dev DB (or need to hand-craft a case
 that doesn't exist in the dev DB), fall back to the manual method below.
 
@@ -108,7 +193,7 @@ Create a folder under `storage/app/ssm-fixtures/cases/{caseKey}/` containing:
 - One of `company-profile.json` / `business-profile.json` / `llp-profile.json`, matching `entityType` — the raw JSON body SSM would return for that endpoint (its `requestRefNo` field is rewritten to `{caseKey}` automatically on every response).
 - `report.pdf` — the report file returned via `get-order-document` → `/reports/{caseKey}.pdf`.
 - Optionally, an `idaman/` subfolder for Idaman document endpoints:
-  - `idaman/list.json` — a JSON array of `{ "verId": "...", "formType": "...", "dateFiler": "..." }` entries.
+  - `idaman/list.json` — a JSON array of `documentInfos` entries as the real gateway returns them. The fields the BE and FE read are `verId`, `formType` and `documentDate` (`YYYYMMDD`); `dateFiler` (ISO-8601, `+08:00`), `companyNo`, `imageName`, `receivedDate`, `totalPage`, `batchId`, `comments`, `sourceData`, `stateCode` complete the shape. A hand-written entry may give just `{ "verId", "formType", "dateFiler": "YYYY-MM-DD" }` — `documentDate` and the ISO `dateFiler` are derived when served.
   - `idaman/{verId}.<any-extension>` — the raw document content for each entry, base64-encoded automatically when served via `get-image`.
   - Cases without an `idaman/` folder simply have no Idaman documents — `get-image-list` returns a "not found" response for them.
 
@@ -140,8 +225,8 @@ Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
 - `SENANGPAY_SECRET_KEYS` — required by the payment mock: `frontend-host=secret` pairs separated by `;` (e.g. `localhost=…;dev-aiexe.infomina.ai=…;staging-aiexe.infomina.ai=…`). Each secret must equal the `SENANGPAY_SECRET_KEY` of the `infominaAI-BE` serving that frontend, since that BE verifies the callback hash. Hosts not listed cannot use the mock. Hostnames are matched case-insensitively, ignoring port.
 - `MOCK_REDIRECT_URL` — optional fallback frontend origin for the mock payment page, used only when the browser sent neither `Origin` nor `Referer` (HTTPS→HTTP downgrade, or a scripted caller) and no `return_url` field was posted. Normally unnecessary: the origin is detected from the request. The tester can always edit it on the page.
 - `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
-- `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool to pull Idaman document content.
-- `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool (see above); unused unless you're running `/admin/sync-cases` locally.
+- `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool, `ssm:download-response` and `ssm:import-cases` to pull raw JSON, PDF reports and Idaman document content.
+- `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool and `ssm:import-cases --push` (see above); unused otherwise.
 
 ## Admin UI and API credentials
 

@@ -4,9 +4,7 @@ namespace App\Services;
 
 class SsmCaseRepository
 {
-    public function __construct(private readonly string $basePath)
-    {
-    }
+    public function __construct(private readonly string $basePath) {}
 
     public function all(): array
     {
@@ -96,7 +94,29 @@ class SsmCaseRepository
 
         $documents = json_decode(file_get_contents($listPath), true);
 
-        return is_array($documents) ? $documents : null;
+        if (! is_array($documents)) {
+            return null;
+        }
+
+        return array_map([$this, 'withGatewayDateFields'], $documents);
+    }
+
+    /**
+     * Hand-crafted lists may carry only dateFiler; the BE and FE read
+     * documentDate (YYYYMMDD), so derive whichever of the two is missing.
+     */
+    private function withGatewayDateFields(array $entry): array
+    {
+        $source = $entry['documentDate'] ?? $entry['dateFiler'] ?? null;
+
+        if (! is_string($source) || $source === '') {
+            return $entry;
+        }
+
+        $entry['documentDate'] = IdamanDocumentDates::yyyymmdd($source);
+        $entry['dateFiler'] = IdamanDocumentDates::iso($entry['dateFiler'] ?? $source);
+
+        return $entry;
     }
 
     public function idamanDocumentFile(array $case, string $verId): ?string
