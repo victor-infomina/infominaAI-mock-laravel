@@ -17,6 +17,12 @@ class SsmGatewayOrderTest extends TestCase
 
     private int $companyId;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -41,7 +47,7 @@ class SsmGatewayOrderTest extends TestCase
         $this->companyId = (int) sprintf('%u', crc32('infomina-berhad'));
     }
 
-    private function post(string $path, array $body)
+    private function gatewayPost(string $path, array $body)
     {
         return $this->withHeaders($this->bearerHeaders())->postJson('/ssm-gateway'.$path, array_merge(
             ['_user_id' => 1, '_org_id' => 10, '_org_role' => 'owner', '_role_id' => 2, '_testing_secret' => null],
@@ -51,12 +57,12 @@ class SsmGatewayOrderTest extends TestCase
 
     private function addCompanyItem(): int
     {
-        return $this->post('/cart/add-item', ['variant_id' => 160, 'company_id' => (string) $this->companyId])->json('cart_id');
+        return $this->gatewayPost('/cart/add-item', ['variant_id' => 160, 'company_id' => (string) $this->companyId])->json('cart_id');
     }
 
     public function test_add_item_creates_order_and_returns_cart(): void
     {
-        $response = $this->post('/cart/add-item', ['variant_id' => 160, 'company_id' => $this->companyId]);
+        $response = $this->gatewayPost('/cart/add-item', ['variant_id' => 160, 'company_id' => $this->companyId]);
 
         $response->assertOk();
         $response->assertJsonPath('isOk', true);
@@ -74,26 +80,26 @@ class SsmGatewayOrderTest extends TestCase
 
     public function test_add_item_accepts_company_id_as_string(): void
     {
-        $this->post('/cart/add-item', ['variant_id' => 158, 'company_id' => (string) $this->companyId])
+        $this->gatewayPost('/cart/add-item', ['variant_id' => 158, 'company_id' => (string) $this->companyId])
             ->assertOk()->assertJsonPath('isOk', true);
     }
 
     public function test_add_item_unknown_company_is_404(): void
     {
-        $this->post('/cart/add-item', ['variant_id' => 160, 'company_id' => '12345'])
+        $this->gatewayPost('/cart/add-item', ['variant_id' => 160, 'company_id' => '12345'])
             ->assertStatus(404)->assertJsonPath('message', 'Company not found');
     }
 
     public function test_add_item_unknown_variant_is_422(): void
     {
-        $this->post('/cart/add-item', ['variant_id' => 999999, 'company_id' => $this->companyId])
+        $this->gatewayPost('/cart/add-item', ['variant_id' => 999999, 'company_id' => $this->companyId])
             ->assertStatus(422)->assertJsonPath('message', 'Invalid variant');
-        $this->post('/cart/add-item', ['company_id' => $this->companyId])->assertStatus(422);
+        $this->gatewayPost('/cart/add-item', ['company_id' => $this->companyId])->assertStatus(422);
     }
 
     public function test_add_item_personal_involvement(): void
     {
-        $response = $this->post('/cart/add-item', ['variant_id' => 1047, 'company_id' => 'PI-900101015555', 'personal_involvement' => true]);
+        $response = $this->gatewayPost('/cart/add-item', ['variant_id' => 1047, 'company_id' => 'PI-900101015555', 'personal_involvement' => true]);
 
         $response->assertOk();
         $response->assertJsonPath('cart.com_id', 'PI-900101015555');
@@ -104,9 +110,9 @@ class SsmGatewayOrderTest extends TestCase
 
     public function test_add_item_personal_involvement_bad_ref_is_404(): void
     {
-        $this->post('/cart/add-item', ['variant_id' => 1047, 'company_id' => 'PI-000000000000', 'personal_involvement' => true])
+        $this->gatewayPost('/cart/add-item', ['variant_id' => 1047, 'company_id' => 'PI-000000000000', 'personal_involvement' => true])
             ->assertStatus(404)->assertJsonPath('message', 'Invalid selection reference');
-        $this->post('/cart/add-item', ['variant_id' => 1047, 'company_id' => '900101015555', 'personal_involvement' => true])
+        $this->gatewayPost('/cart/add-item', ['variant_id' => 1047, 'company_id' => '900101015555', 'personal_involvement' => true])
             ->assertStatus(404);
     }
 
@@ -114,7 +120,7 @@ class SsmGatewayOrderTest extends TestCase
     {
         $cartId = $this->addCompanyItem();
 
-        $response = $this->post('/order/init-checkout-page', ['cart_ids' => [$cartId]]);
+        $response = $this->gatewayPost('/order/init-checkout-page', ['cart_ids' => [$cartId]]);
 
         $response->assertOk();
         $response->assertJsonPath('is_email_verified', true);
@@ -130,14 +136,14 @@ class SsmGatewayOrderTest extends TestCase
 
     public function test_checkout_requires_cart_ids(): void
     {
-        $this->post('/order/init-checkout-page', [])->assertStatus(422);
-        $this->post('/order/init-checkout-page', ['cart_ids' => []])->assertStatus(422);
-        $this->post('/payment/ssm-product', [])->assertStatus(422);
+        $this->gatewayPost('/order/init-checkout-page', [])->assertStatus(422);
+        $this->gatewayPost('/order/init-checkout-page', ['cart_ids' => []])->assertStatus(422);
+        $this->gatewayPost('/payment/ssm-product', [])->assertStatus(422);
     }
 
     public function test_checkout_unknown_cart_is_404(): void
     {
-        $this->post('/order/init-checkout-page', ['cart_ids' => [999]])
+        $this->gatewayPost('/order/init-checkout-page', ['cart_ids' => [999]])
             ->assertStatus(404)->assertJsonPath('message', 'Cart not found');
     }
 
@@ -148,23 +154,23 @@ class SsmGatewayOrderTest extends TestCase
             'full_name' => 'SSM Mock', 'phone' => '0123456789', 'email' => 'x@y.z', 'address1' => 'a', 'address2' => null,
             'city' => 'KL', 'state_code' => 'W', 'zipcode' => '50000', 'country_code' => 'MAL'];
 
-        $first = $this->post('/payment/ssm-product', $body);
+        $first = $this->gatewayPost('/payment/ssm-product', $body);
         $first->assertOk();
         $first->assertJsonPath('is_skip_billplz', true);
         $first->assertJsonStructure(['skip_billplz_redirect_url', 'is_skip_billplz', 'bill_id', 'bill_url']);
         $billId = $first->json('bill_id');
         $this->assertStringStartsWith('mockbill', $billId);
 
-        $this->post('/payment/ssm-product', $body)->assertJsonPath('bill_id', $billId);
+        $this->gatewayPost('/payment/ssm-product', $body)->assertJsonPath('bill_id', $billId);
         $this->assertDatabaseHas('ssm_gateway_order', ['id' => $cartId, 'bill_id' => $billId]);
     }
 
     public function test_thank_you_assigns_ref_no_once(): void
     {
         $cartId = $this->addCompanyItem();
-        $billId = $this->post('/payment/ssm-product', ['cart_ids' => [$cartId]])->json('bill_id');
+        $billId = $this->gatewayPost('/payment/ssm-product', ['cart_ids' => [$cartId]])->json('bill_id');
 
-        $first = $this->post('/order/init-thank-you-page', ['billplz_id' => $billId]);
+        $first = $this->gatewayPost('/order/init-thank-you-page', ['billplz_id' => $billId]);
         $first->assertOk();
         $first->assertJsonPath('order_id', $cartId);
         $first->assertJsonPath('is_paid', 1);
@@ -172,18 +178,18 @@ class SsmGatewayOrderTest extends TestCase
         $refNo = $first->json('ref_no');
         $this->assertStringStartsWith('ORDMOCK', $refNo);
 
-        $this->post('/order/init-thank-you-page', ['billplz_id' => $billId])->assertJsonPath('ref_no', $refNo);
-        $this->post('/order/init-thank-you-page', ['billplz_id' => 'nope'])->assertStatus(404)->assertJsonPath('message', 'Order not found');
-        $this->post('/order/init-thank-you-page', [])->assertStatus(422);
+        $this->gatewayPost('/order/init-thank-you-page', ['billplz_id' => $billId])->assertJsonPath('ref_no', $refNo);
+        $this->gatewayPost('/order/init-thank-you-page', ['billplz_id' => 'nope'])->assertStatus(404)->assertJsonPath('message', 'Order not found');
+        $this->gatewayPost('/order/init-thank-you-page', [])->assertStatus(422);
     }
 
     public function test_init_order_page_reports_download_url(): void
     {
         $cartId = $this->addCompanyItem();
-        $billId = $this->post('/payment/ssm-product', ['cart_ids' => [$cartId]])->json('bill_id');
-        $refNo = $this->post('/order/init-thank-you-page', ['billplz_id' => $billId])->json('ref_no');
+        $billId = $this->gatewayPost('/payment/ssm-product', ['cart_ids' => [$cartId]])->json('bill_id');
+        $refNo = $this->gatewayPost('/order/init-thank-you-page', ['billplz_id' => $billId])->json('ref_no');
 
-        $response = $this->post('/order/init-order-page', ['ref_no' => $refNo, 'is_admin' => false]);
+        $response = $this->gatewayPost('/order/init-order-page', ['ref_no' => $refNo, 'is_admin' => false]);
 
         $response->assertOk();
         $response->assertJsonPath('ref_no', $refNo);
@@ -195,32 +201,32 @@ class SsmGatewayOrderTest extends TestCase
         $this->assertStringEndsWith('/reports/infomina-berhad.pdf', $response->json('detail.items.0.children.0.download_url'));
         $response->assertJsonStructure(['paid_amount', 'is_paid', 'order_id', 'is_foc', 'is_use_point', 'ref_no', 'receipt_url', 'is_to_pay', 'is_complete', 'is_refund', 'is_cancel', 'created_at', 'name', 'cidp_org_id', 'is_einvoice_expired', 'placed_at', 'paid_at', 'detail', 'is_ispars_success']);
 
-        $this->post('/order/init-order-page', ['ref_no' => 'nope'])->assertStatus(404)->assertJsonPath('message', 'Order not found');
+        $this->gatewayPost('/order/init-order-page', ['ref_no' => 'nope'])->assertStatus(404)->assertJsonPath('message', 'Order not found');
     }
 
     public function test_init_order_page_honours_report_delay(): void
     {
         config(['ssm_gateway_mock.report_delay_seconds' => 300]);
-        Carbon::setTestNow('2026-10-15 10:00:00');
+        $start = now()->startOfSecond();
+        Carbon::setTestNow($start);
         $cartId = $this->addCompanyItem();
-        $billId = $this->post('/payment/ssm-product', ['cart_ids' => [$cartId]])->json('bill_id');
-        $refNo = $this->post('/order/init-thank-you-page', ['billplz_id' => $billId])->json('ref_no');
+        $billId = $this->gatewayPost('/payment/ssm-product', ['cart_ids' => [$cartId]])->json('bill_id');
+        $refNo = $this->gatewayPost('/order/init-thank-you-page', ['billplz_id' => $billId])->json('ref_no');
 
-        $this->post('/order/init-order-page', ['ref_no' => $refNo])
+        $this->gatewayPost('/order/init-order-page', ['ref_no' => $refNo])
             ->assertOk()
             ->assertJsonPath('detail.items.0.children.0.download_url', null)
             ->assertJsonPath('detail.items.0.children.0.gen_error', null);
 
-        Carbon::setTestNow('2026-10-15 10:05:01');
-        $this->assertNotNull($this->post('/order/init-order-page', ['ref_no' => $refNo])->json('detail.items.0.children.0.download_url'));
-        Carbon::setTestNow();
+        Carbon::setTestNow($start->copy()->addSeconds(301));
+        $this->assertNotNull($this->gatewayPost('/order/init-order-page', ['ref_no' => $refNo])->json('detail.items.0.children.0.download_url'));
     }
 
     public function test_orders_are_scoped_to_client(): void
     {
         $cartId = $this->addCompanyItem();
-        $billId = $this->post('/payment/ssm-product', ['cart_ids' => [$cartId]])->json('bill_id');
-        $refNo = $this->post('/order/init-thank-you-page', ['billplz_id' => $billId])->json('ref_no');
+        $billId = $this->gatewayPost('/payment/ssm-product', ['cart_ids' => [$cartId]])->json('bill_id');
+        $refNo = $this->gatewayPost('/order/init-thank-you-page', ['billplz_id' => $billId])->json('ref_no');
 
         [$other] = ApiClient::createWithSecret('other', null, 'ssm_gateway');
         Cache::put('ssm_gateway_token:other-token', $other->id, 3600);
