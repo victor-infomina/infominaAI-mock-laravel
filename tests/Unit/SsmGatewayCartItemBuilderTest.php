@@ -1,0 +1,132 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Models\ApiClient;
+use App\Models\SsmGatewayOrder;
+use App\Services\SsmGateway\CartItemBuilder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Tests\TestCase;
+
+class SsmGatewayCartItemBuilderTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private CartItemBuilder $builder;
+
+    private ApiClient $client;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $cases = sys_get_temp_dir().'/ssm-gateway-builder-cases-'.uniqid();
+        mkdir($cases.'/infomina-berhad', 0777, true);
+        file_put_contents($cases.'/infomina-berhad/meta.json', json_encode([
+            'regNo' => '200701018579', 'companyName' => 'INFOMINA BERHAD', 'entityType' => 'company',
+        ]));
+        config(['ssm_mock.cases_path' => $cases]);
+
+        $inv = sys_get_temp_dir().'/ssm-gateway-builder-inv-'.uniqid();
+        mkdir($inv.'/900101015555', 0777, true);
+        file_put_contents($inv.'/900101015555/meta.json', json_encode([
+            'idType' => 'MK', 'idValue' => '900101015555', 'name' => 'AHMAD BIN ALI',
+        ]));
+        config(['ssm_gateway_mock.involvements_path' => $inv]);
+
+        [$this->client] = ApiClient::createWithSecret('t', null, 'ssm_gateway');
+        $this->builder = app(CartItemBuilder::class);
+    }
+
+    private function companyOrder(): SsmGatewayOrder
+    {
+        return SsmGatewayOrder::create([
+            'api_client_id' => $this->client->id, 'kind' => 'company', 'subject_key' => 'infomina-berhad',
+            'reg_no' => '200701018579', 'name' => 'INFOMINA BERHAD', 'variant_id' => 160,
+        ]);
+    }
+
+    private function involvementOrder(): SsmGatewayOrder
+    {
+        return SsmGatewayOrder::create([
+            'api_client_id' => $this->client->id, 'kind' => 'involvement', 'subject_key' => '900101015555',
+            'reg_no' => '900101015555', 'name' => 'AHMAD BIN ALI', 'variant_id' => 1047,
+        ]);
+    }
+
+    public function test_company_cart_item(): void
+    {
+        $order = $this->companyOrder();
+        $item = $this->builder->cartItem($order);
+
+        $this->assertSame('infomina-berhad', $item['com_slug']);
+        $this->assertSame('INFOMINA BERHAD', $item['com_name']);
+        $this->assertSame('200701018579', $item['com_reg_no']);
+        $this->assertSame('200701018579', $item['com_reg_no_old']);
+        $this->assertNull($item['relationships']);
+        $this->assertSame('ROC', $item['entity_type']);
+        $this->assertSame((string) (int) sprintf('%u', crc32('infomina-berhad')), $item['com_id']);
+
+        $child = $item['children'][0];
+        $this->assertSame($order->id, $child['cart_id']);
+        $this->assertSame(160, $child['variant_id']);
+        $this->assertSame('Company Profile', $child['product_name']);
+        $this->assertSame(1, $child['is_ctc']);
+        $this->assertSame('en', $child['lang']);
+        $this->assertSame(17.9, $child['amount']);
+        $this->assertStringEndsWith('/reports/infomina-berhad.pdf', $child['download_url']);
+        $this->assertNull($child['gen_error']);
+        $this->assertSame(0.9, $child['amountDetail']['sst']['amount']);
+    }
+
+    public function test_involvement_cart_item(): void
+    {
+        $item = $this->builder->cartItem($this->involvementOrder());
+
+        $this->assertSame('PI-900101015555', $item['com_id']);
+        $this->assertNull($item['com_slug']);
+        $this->assertNull($item['entity_type']);
+        $this->assertSame('900101015555', $item['com_reg_no']);
+        $this->assertSame('MK', $item['relationships']['personal_involvement']['id_type']);
+        $this->assertSame('PI-900101015555', $item['relationships']['personal_involvement']['selection_ref_no']);
+        $this->assertSame('AHMAD BIN ALI', $item['relationships']['personal_involvement']['label']);
+        $this->assertStringEndsWith('/ssm-gateway/involvement-reports/900101015555.pdf', $item['children'][0]['download_url']);
+        $this->assertSame('Director Involvement', $item['children'][0]['product_name']);
+    }
+
+    public function test_download_url_respects_report_delay(): void
+    {
+        config(['ssm_gateway_mock.report_delay_seconds' => 60]);
+        Carbon::setTestNow('2026-10-15 10:00:00');
+        $order = $this->companyOrder();
+
+        $this->assertFalse($this->builder->isReportReady($order));
+        $this->assertNull($this->builder->cartItem($order)['children'][0]['download_url']);
+
+        Carbon::setTestNow('2026-10-15 10:01:00');
+        $this->assertTrue($this->builder->isReportReady($order->fresh()));
+        $this->assertNotNull($this->builder->cartItem($order->fresh())['children'][0]['download_url']);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_summary_and_detail_totals(): void
+    {
+        $order = $this->companyOrder();
+        $summary = $this->builder->cartSummary($order);
+
+        $this->assertSame(6, $summary['sstRate']);
+        $this->assertSame(15, $summary['subtotalAmount']);
+        $this->assertSame(2, $summary['serviceAmount']);
+        $this->assertSame(0.9, $summary['sstAmount']);
+        $this->assertSame(17.9, $summary['finalAmount']);
+        $this->assertSame(1, $summary['count']);
+        $this->assertCount(1, $summary['items']);
+
+        $detail = $this->builder->orderDetail($order);
+        $this->assertSame($order->id, $detail['order_id']);
+        $this->assertSame('SSM Price', $detail['fee_map']['price']['label']);
+        $this->assertSame(0, $detail['fee_map']['ctc']['is_waived']);
+    }
+}

@@ -9,6 +9,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SsmGateway\AuthController as SsmGatewayAuthController;
 use App\Http\Controllers\SsmGateway\CompanyController as SsmGatewayCompanyController;
 use App\Http\Controllers\SsmGateway\InvolvementController as SsmGatewayInvolvementController;
+use App\Http\Controllers\SsmGateway\OrderController as SsmGatewayOrderController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
 
@@ -61,6 +62,11 @@ Route::prefix('ssm-gateway')->group(function () {
         Route::post('/product/list', [SsmGatewayCompanyController::class, 'productList']);
         Route::post('/product/list-by-company', [SsmGatewayCompanyController::class, 'productListByCompany']);
         Route::post('/personal-involvement/submission', [SsmGatewayInvolvementController::class, 'submission']);
+        Route::post('/cart/add-item', [SsmGatewayOrderController::class, 'addItem']);
+        Route::post('/order/init-checkout-page', [SsmGatewayOrderController::class, 'initCheckoutPage']);
+        Route::post('/payment/ssm-product', [SsmGatewayOrderController::class, 'payment']);
+        Route::post('/order/init-thank-you-page', [SsmGatewayOrderController::class, 'initThankYouPage']);
+        Route::post('/order/init-order-page', [SsmGatewayOrderController::class, 'initOrderPage']);
     });
 });
 
