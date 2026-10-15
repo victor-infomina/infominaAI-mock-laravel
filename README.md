@@ -1,6 +1,6 @@
 # InfominaAI SSM Mock
 
-A Laravel mock of the SSM, AsiaVerify, and DNB gateways, for pointing
+A Laravel mock of the SSM, AsiaVerify, DNB and SSM Gateway (ssmsearch.com) upstreams, for pointing
 `infominaAI-BE`'s `SSM_API_URL`, `ASIAVERIFY_API_URL`, and `DNB_API_URL` at
 during dev/staging instead of the real APIs.
 
@@ -28,6 +28,43 @@ All three always respond HTTP `200`; a `code` field inside the body (`"200"`/`"4
 ### DNB (Singapore / Indonesia)
 
 - `POST /dnb` — single endpoint, raw XML in/out, routed internally by the body's `<PRODUCT>` tag (`XCNS`/`BCP` for Singapore, `XICNS`/`XICDS` for Indonesia). Credentials (`USER_ID`/`PASSWORD`) travel inside the XML body, checked against a `dnb`-purpose `ApiClient`; missing/invalid → real HTTP `401`. Otherwise always `200` with an XML body — an empty `<REPORT></REPORT>` or empty inner list means "not found".
+
+### SSM Gateway (ssmsearch.com portal, for `infominaAI-BE`'s `ssm-gateway` module)
+
+Stands in for the SSM Search reseller portal that `infominaAI-BE/src/ssm-gateway`
+automates (login page + JSON API at `stage.ssmsearch.com` / `stageapi.ssmsearch.com`).
+This is a different upstream from the SSM API above. All routes live under `/ssm-gateway`.
+
+Point the BE at it:
+
+    SSM_API_BASE_URL=https://<this host>/ssm-gateway
+    SSM_LOGIN_URL=https://<this host>/ssm-gateway/login
+    SSM_HTTP_USERNAME=anything     # BE insists on these outside production; the mock ignores the header
+    SSM_HTTP_PASSWORD=anything
+
+Credentials: generate an **`ssm_gateway`**-purpose pair on `/tokens`, then on the FE's
+SSM Gateway → Config page enter the **key as the username** and the **secret as the
+password**. Click "Login"; the captcha widget is Google's always-pass reCAPTCHA v2 test
+key, so any click solves it. **Turn the WebSocket toggle off** on that page: this mock
+cannot host the Pusher socket (shared hosting), and the BE's 5-minute
+`init-order-page` poll completes orders instead. Expect a queued purchase to reach
+COMPLETED within ~5–10 minutes.
+
+- `GET /ssm-gateway/login` — HTML with a `.g-recaptcha[data-sitekey]` (Puppeteer detection + FE captcha proxy).
+- `POST /ssm-gateway/user/login` — `{email, password, recaptchaToken}` → bearer `token` + user details. Any non-empty captcha token is accepted.
+- `POST /ssm-gateway/point/get-balance` — token probe; `200 {balance, is_show_point}`.
+- `POST /ssm-gateway/company/search` — `{search: <regNo>}` matched against the SSM case folders above (`meta.json` `regNo`). `slug` is the case key.
+- `POST /ssm-gateway/company/get-info` — `{slug}`.
+- `POST /ssm-gateway/product/list`, `/product/list-by-company` — static catalogue mirroring the BE's **staging** variant-id table (`ssm-variant-ids.stg.const.ts`).
+- `POST /ssm-gateway/personal-involvement/submission` — `{idType, idValue}` → `data.selectionRefNo` (`PI-<idValue>`) when an involvement fixture exists, else 404.
+- `POST /ssm-gateway/cart/add-item` → `cart_id`; `/order/init-checkout-page`; `/payment/ssm-product` → `bill_id`; `/order/init-thank-you-page` → `ref_no`; `/order/init-order-page` → `detail.items[0].children[0].download_url`.
+- `GET /reports/{caseKey}.pdf` and `GET /ssm-gateway/involvement-reports/{idValue}.pdf` — the `download_url` targets, unauthenticated like the real pre-signed links.
+- `POST /ssm-gateway/file/upload`, `/helpdesk/submit` — stubs so "Report issue" works.
+
+Every variant id serves the case's single `report.pdf`. Error responses are `{"message": "..."}`
+with a 4xx status, which is what the BE's error extractor reads. Not mocked (the BE never
+calls them): `cart/count`, `cart/load-detail`, `order/list`. State (carts/orders) is in the
+sqlite `ssm_gateway_order` table.
 
 ## LLM mock endpoint (for transformer-api's LLM_DOMAIN)
 
@@ -215,6 +252,17 @@ Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
 - `meta.json` — `{ "country": "singapore", "regNo": "...", "companyName": "..." }` or `{ "country": "indonesia", "companyId": "...", "companyName": "..." }`.
 - `profile.xml` — the full captured profile XML response, stored verbatim.
 
+## Adding an SSM Gateway involvement test case
+
+Company purchases need no extra fixtures — they reuse the SSM case folders. Personal-involvement
+purchases (director/shareholder/… involvement products) look up
+`storage/app/ssm-gateway-fixtures/involvements/{idValue}/` containing:
+
+- `meta.json` — `{ "idType": "MK", "idValue": "900101015555", "name": "AHMAD BIN ALI" }` (`idValue` is the folder name; `idType` is informational).
+- `report.pdf` — returned for every involvement variant.
+
+One example (`900101015555`) ships with the repo.
+
 ## Environment variables
 
 - `APP_URL` — must be this app's real public URL; it's used to build the `documentUrl` field `infominaAI-BE` fetches directly.
@@ -227,6 +275,10 @@ Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
 - `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
 - `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool, `ssm:download-response` and `ssm:import-cases` to pull raw JSON, PDF reports and Idaman document content.
 - `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool and `ssm:import-cases --push` (see above); unused otherwise.
+- `SSM_GATEWAY_MOCK_TOKEN_TTL_SECONDS` — lifetime of bearer tokens issued by `POST /ssm-gateway/user/login` (defaults to `86400`); after expiry the FE config page shows the token as invalid and the operator logs in again.
+- `SSM_GATEWAY_MOCK_REPORT_DELAY_SECONDS` — seconds after `cart/add-item` before `order/init-order-page` reports a `download_url` (defaults to `0`, i.e. immediately); set it to exercise the BE's AWAITING_PDF path.
+- `SSM_GATEWAY_MOCK_INVOLVEMENTS_PATH` — optional override for the involvement fixture directory (defaults to `storage/app/ssm-gateway-fixtures/involvements`).
+- `SSM_GATEWAY_MOCK_RECAPTCHA_SITEKEY` — sitekey rendered on `/ssm-gateway/login` (defaults to Google's always-pass reCAPTCHA v2 test key).
 
 ## Admin UI and API credentials
 
