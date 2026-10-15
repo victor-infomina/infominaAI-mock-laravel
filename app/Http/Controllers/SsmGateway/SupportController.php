@@ -31,6 +31,7 @@ class SupportController extends Controller
 
     public function helpdeskSubmit(Request $request): JsonResponse
     {
+        Cache::add('ssm_gateway_helpdesk_seq', 0);
         $id = Cache::increment('ssm_gateway_helpdesk_seq');
         $now = now()->getTimestampMs();
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Tests\Concerns\InteractsWithSsmGatewayToken;
 use Tests\TestCase;
 
@@ -64,6 +65,18 @@ class SsmGatewaySupportTest extends TestCase
         $a = $this->withHeaders($this->bearerHeaders())->postJson('/ssm-gateway/helpdesk/submit', ['subject' => 'a', 'desc' => 'a'])->json('results.id');
         $b = $this->withHeaders($this->bearerHeaders())->postJson('/ssm-gateway/helpdesk/submit', ['subject' => 'b', 'desc' => 'b'])->json('results.id');
         $this->assertSame($a + 1, $b);
+    }
+
+    public function test_helpdesk_sequence_starts_at_one_on_database_cache(): void
+    {
+        config(['cache.default' => 'database']);
+        Cache::put('ssm_gateway_token:'.$this->ssmGatewayToken, $this->ssmGatewayClient->id, 3600);
+
+        $first = $this->withHeaders($this->bearerHeaders())->postJson('/ssm-gateway/helpdesk/submit', ['subject' => 'a', 'desc' => 'a']);
+        $second = $this->withHeaders($this->bearerHeaders())->postJson('/ssm-gateway/helpdesk/submit', ['subject' => 'b', 'desc' => 'b']);
+
+        $first->assertOk()->assertJsonPath('results.id', 1)->assertJsonPath('results.internal_ticket_no', 'HD-MOCK-1');
+        $second->assertOk()->assertJsonPath('results.id', 2)->assertJsonPath('results.internal_ticket_no', 'HD-MOCK-2');
     }
 
     public function test_requires_bearer_token(): void

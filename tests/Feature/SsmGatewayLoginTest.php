@@ -70,6 +70,13 @@ class SsmGatewayLoginTest extends TestCase
         $this->login()->assertStatus(401);
     }
 
+    public function test_login_rejects_expired_client(): void
+    {
+        $this->client->update(['expires_at' => now()->subDay()]);
+
+        $this->login()->assertStatus(401);
+    }
+
     public function test_login_rejects_empty_captcha(): void
     {
         $this->login(['recaptchaToken' => ''])->assertStatus(422)->assertJsonPath('message', 'Captcha verification failed');

@@ -17,6 +17,8 @@ class CartItemBuilder
 
     public const TOTAL = 17.9;
 
+    public const MISSING_REPORT_ERROR = 'Mock fixture has no report.pdf';
+
     public function __construct(
         private readonly CompanyMapper $companies,
         private readonly ProductCatalogue $catalogue,
@@ -32,19 +34,39 @@ class CartItemBuilder
 
     public function downloadUrl(SsmGatewayOrder $order): ?string
     {
+        return $this->reportState($order)[0];
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string} [download_url, gen_error]
+     */
+    private function reportState(SsmGatewayOrder $order): array
+    {
         if (! $this->isReportReady($order)) {
-            return null;
+            return [null, null];
         }
 
         if ($order->isInvolvement()) {
             $involvement = $this->involvements->find($order->subject_key);
 
-            return $involvement ? $this->involvements->reportUrl($involvement) : null;
+            if ($involvement === null) {
+                return [null, null];
+            }
+
+            return $this->involvements->reportFile($involvement) === null
+                ? [null, self::MISSING_REPORT_ERROR]
+                : [$this->involvements->reportUrl($involvement), null];
         }
 
         $case = $this->companies->findBySlug($order->subject_key);
 
-        return $case ? $this->companies->reportUrl($case) : null;
+        if ($case === null) {
+            return [null, null];
+        }
+
+        return is_file($case['path'].'/report.pdf')
+            ? [$this->companies->reportUrl($case), null]
+            : [null, self::MISSING_REPORT_ERROR];
     }
 
     public function cartItem(SsmGatewayOrder $order): array
@@ -52,6 +74,8 @@ class CartItemBuilder
         $variant = $this->catalogue->findVariant($order->variant_id) ?? [
             'product_id' => 0, 'product_name' => 'Unknown', 'variant_id' => $order->variant_id, 'lang' => 'en', 'is_ctc' => 0,
         ];
+
+        [$downloadUrl, $genError] = $this->reportState($order);
 
         if ($order->isInvolvement()) {
             $involvement = $this->involvements->find($order->subject_key);
@@ -101,8 +125,8 @@ class CartItemBuilder
                 'serviceAmount' => self::SERVICE,
                 'amount' => self::TOTAL,
                 'itemOriginalBasePrice' => self::SUBTOTAL,
-                'download_url' => $this->downloadUrl($order),
-                'gen_error' => null,
+                'download_url' => $downloadUrl,
+                'gen_error' => $genError,
                 'sample_url' => '[]',
                 'amountDetail' => [
                     'price' => ['amount' => self::SUBTOTAL, 'adjustment_type' => '-', 'adjustment_amount' => 0],

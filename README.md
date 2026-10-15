@@ -48,7 +48,9 @@ password**. Click "Login"; the captcha widget is Google's always-pass reCAPTCHA 
 key, so any click solves it. **Turn the WebSocket toggle off** on that page: this mock
 cannot host the Pusher socket (shared hosting), and the BE's 5-minute
 `init-order-page` poll completes orders instead. Expect a queued purchase to reach
-COMPLETED within ~5–10 minutes.
+COMPLETED within ~5–10 minutes. An environment that previously pointed at the real staging
+portal keeps the cached real sitekey, so after switching the env vars click "Detect sitekey"
+on the FE config page (or call `PUT /ssm-gateway-session/captcha-sitekey`) before logging in.
 
 - `GET /ssm-gateway/login` — HTML with a `.g-recaptcha[data-sitekey]` (Puppeteer detection + FE captcha proxy).
 - `POST /ssm-gateway/user/login` — `{email, password, recaptchaToken}` → bearer `token` + user details. Any non-empty captcha token is accepted.

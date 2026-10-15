@@ -26,6 +26,11 @@ class SsmGatewayCartItemBuilderTest extends TestCase
         file_put_contents($cases.'/infomina-berhad/meta.json', json_encode([
             'regNo' => '200701018579', 'companyName' => 'INFOMINA BERHAD', 'entityType' => 'company',
         ]));
+        file_put_contents($cases.'/infomina-berhad/report.pdf', '%PDF-1.4 fake');
+        mkdir($cases.'/no-pdf-sdn-bhd', 0777, true);
+        file_put_contents($cases.'/no-pdf-sdn-bhd/meta.json', json_encode([
+            'regNo' => '200001000001', 'companyName' => 'NO PDF SDN BHD', 'entityType' => 'company',
+        ]));
         config(['ssm_mock.cases_path' => $cases]);
 
         $inv = sys_get_temp_dir().'/ssm-gateway-builder-inv-'.uniqid();
@@ -33,6 +38,7 @@ class SsmGatewayCartItemBuilderTest extends TestCase
         file_put_contents($inv.'/900101015555/meta.json', json_encode([
             'idType' => 'MK', 'idValue' => '900101015555', 'name' => 'AHMAD BIN ALI',
         ]));
+        file_put_contents($inv.'/900101015555/report.pdf', '%PDF-1.4 fake');
         config(['ssm_gateway_mock.involvements_path' => $inv]);
 
         [$this->client] = ApiClient::createWithSecret('t', null, 'ssm_gateway');
@@ -78,6 +84,20 @@ class SsmGatewayCartItemBuilderTest extends TestCase
         $this->assertStringEndsWith('/reports/infomina-berhad.pdf', $child['download_url']);
         $this->assertNull($child['gen_error']);
         $this->assertSame(0.9, $child['amountDetail']['sst']['amount']);
+    }
+
+    public function test_company_without_report_pdf_flags_gen_error(): void
+    {
+        $order = SsmGatewayOrder::create([
+            'api_client_id' => $this->client->id, 'kind' => 'company', 'subject_key' => 'no-pdf-sdn-bhd',
+            'reg_no' => '200001000001', 'name' => 'NO PDF SDN BHD', 'variant_id' => 160,
+        ]);
+
+        $child = $this->builder->cartItem($order)['children'][0];
+
+        $this->assertNull($child['download_url']);
+        $this->assertSame('Mock fixture has no report.pdf', $child['gen_error']);
+        $this->assertNull($this->builder->downloadUrl($order));
     }
 
     public function test_involvement_cart_item(): void
