@@ -53,6 +53,8 @@ Route::prefix('ssm-gateway')->group(function () {
         Route::post('/point/get-balance', [SsmGatewayAuthController::class, 'balance']);
         Route::post('/company/search', [SsmGatewayCompanyController::class, 'search']);
         Route::post('/company/get-info', [SsmGatewayCompanyController::class, 'info']);
+        Route::post('/product/list', [SsmGatewayCompanyController::class, 'productList']);
+        Route::post('/product/list-by-company', [SsmGatewayCompanyController::class, 'productListByCompany']);
     });
 });
 
