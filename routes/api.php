@@ -46,6 +46,11 @@ Route::get('/reports/{caseKey}.pdf', [ReportController::class, 'show'])
 // SSM Search (ssmsearch.com) portal mock, consumed by infominaAI-BE's ssm-gateway module.
 Route::prefix('ssm-gateway')->group(function () {
     Route::get('/login', [SsmGatewayAuthController::class, 'loginPage']);
+    Route::post('/user/login', [SsmGatewayAuthController::class, 'login']);
+
+    Route::middleware('verify.ssm-gateway.token')->group(function () {
+        Route::post('/point/get-balance', [SsmGatewayAuthController::class, 'balance']);
+    });
 });
 
 Route::post('/{modelOp}/invoke', [LlmMockController::class, 'invoke'])
