@@ -6,6 +6,7 @@ use App\Http\Controllers\DnbMockController;
 use App\Http\Controllers\LlmMockController;
 use App\Http\Controllers\PaymentMockController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SsmGateway\AuthController as SsmGatewayAuthController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,6 +42,11 @@ Route::post('/payment/{merchantId}/complete', [PaymentMockController::class, 'co
 Route::get('/reports/{caseKey}.pdf', [ReportController::class, 'show'])
     ->where('caseKey', '[A-Za-z0-9_-]+')
     ->name('ssm-mock.report');
+
+// SSM Search (ssmsearch.com) portal mock, consumed by infominaAI-BE's ssm-gateway module.
+Route::prefix('ssm-gateway')->group(function () {
+    Route::get('/login', [SsmGatewayAuthController::class, 'loginPage']);
+});
 
 Route::post('/{modelOp}/invoke', [LlmMockController::class, 'invoke'])
     ->where('modelOp', '[A-Za-z0-9_]+');
