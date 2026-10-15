@@ -76,7 +76,7 @@ class SsmGatewayEndToEndRoundTripTest extends TestCase
         $pdf = $this->get(parse_url($downloadUrl, PHP_URL_PATH));
         $pdf->assertOk();
         $pdf->assertHeader('Content-Type', 'application/pdf');
-        $this->assertSame($expectedPdfBody, $pdf->getContent());
+        $this->assertSame($expectedPdfBody, file_get_contents($pdf->baseResponse->getFile()->getPathname()));
     }
 
     public function test_company_purchase_flow(): void
