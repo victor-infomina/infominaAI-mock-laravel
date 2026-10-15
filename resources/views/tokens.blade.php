@@ -42,6 +42,7 @@
                             <option value="admin_sync">admin_sync — local case-sync tool</option>
                             <option value="asiaverify">asiaverify — infominaAI-BE (AsiaVerify)</option>
                             <option value="dnb">dnb — infominaAI-BE (DNB)</option>
+                            <option value="ssm_gateway">ssm_gateway — infominaAI-BE (SSM Gateway portal login)</option>
                         </select>
                     </div>
                     <div>
