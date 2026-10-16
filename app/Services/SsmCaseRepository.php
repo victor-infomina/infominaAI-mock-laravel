@@ -49,10 +49,12 @@ class SsmCaseRepository
 
     public function findByRegNo(string $regNo, string $entityType): ?array
     {
+        $entityType = self::normalizeEntityType($entityType);
+
         foreach ($this->all() as $case) {
             if (
                 strcasecmp($case['meta']['regNo'] ?? '', $regNo) === 0
-                && strcasecmp($case['meta']['entityType'] ?? '', $entityType) === 0
+                && self::normalizeEntityType($case['meta']['entityType'] ?? '') === $entityType
             ) {
                 return $case;
             }
@@ -75,13 +77,27 @@ class SsmCaseRepository
     public function searchByName(string $name, string $entityType): array
     {
         $needle = strtolower($name);
+        $entityType = self::normalizeEntityType($entityType);
 
         return array_values(array_filter($this->all(), function (array $case) use ($needle, $entityType) {
             $companyName = strtolower($case['meta']['companyName'] ?? '');
 
             return str_contains($companyName, $needle)
-                && strcasecmp($case['meta']['entityType'] ?? '', $entityType) === 0;
+                && self::normalizeEntityType($case['meta']['entityType'] ?? '') === $entityType;
         }));
+    }
+
+    /**
+     * SSM's get-search-entity endpoint has its own entityType vocabulary: company and
+     * business are spelled the same as in meta.json, but LLP arrives as
+     * `limited_liability_partnerships` (infominaAI-BE's toSsmSearchEntityType), so both
+     * spellings must resolve to the `llp` stored in meta.json.
+     */
+    private static function normalizeEntityType(string $entityType): string
+    {
+        $entityType = strtolower($entityType);
+
+        return $entityType === 'limited_liability_partnerships' ? 'llp' : $entityType;
     }
 
     public function idamanDocuments(array $case): ?array
