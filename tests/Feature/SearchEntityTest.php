@@ -49,6 +49,26 @@ class SearchEntityTest extends TestCase
         $response->assertJsonPath('getSearchEntity.searchEntity.data.0.companyNo', '123456-A');
     }
 
+    public function test_finds_llp_case_by_ssm_search_vocabulary(): void
+    {
+        $caseDir = $this->casesPath.'/teoh-plt';
+        mkdir($caseDir, 0777, true);
+        file_put_contents($caseDir.'/meta.json', json_encode([
+            'regNo' => '201304000353',
+            'companyName' => 'TEOH CONSULTANCY AND SERVICES PLT',
+            'entityType' => 'llp',
+        ]));
+
+        // infominaAI-BE sends SSM's own vocabulary for LLP, not the catalogue's `llp`.
+        $response = $this->withHeaders($this->authHeaders())
+            ->postJson('/get-search-entity', ['name' => 'te', 'entityType' => 'limited_liability_partnerships']);
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'getSearchEntity.searchEntity.data');
+        $response->assertJsonPath('getSearchEntity.searchEntity.data.0.companyNo', '201304000353');
+        $response->assertJsonPath('getSearchEntity.searchEntity.data.0.entityType', 'llp');
+    }
+
     public function test_returns_404_when_no_case_matches(): void
     {
         $response = $this->withHeaders($this->authHeaders())

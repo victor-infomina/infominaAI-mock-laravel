@@ -90,6 +90,30 @@ class SsmCaseRepositoryTest extends TestCase
         $this->assertSame('acme-co', $matches[0]['key']);
     }
 
+    public function test_find_by_reg_no_accepts_ssm_search_vocabulary_for_llp(): void
+    {
+        $this->makeCase('abc-plt', ['regNo' => '202204001923', 'companyName' => 'ABC PLT', 'entityType' => 'llp']);
+
+        $repo = new SsmCaseRepository($this->fixturesPath);
+
+        $this->assertNotNull($repo->findByRegNo('202204001923', 'limited_liability_partnerships'));
+        $this->assertNotNull($repo->findByRegNo('202204001923', 'LIMITED_LIABILITY_PARTNERSHIPS'));
+        $this->assertNotNull($repo->findByRegNo('202204001923', 'llp'));
+        $this->assertNull($repo->findByRegNo('202204001923', 'company'));
+    }
+
+    public function test_search_by_name_accepts_ssm_search_vocabulary_for_llp(): void
+    {
+        $this->makeCase('abc-plt', ['regNo' => '202204001923', 'companyName' => 'ABC PLT', 'entityType' => 'llp']);
+        $this->makeCase('abc-co', ['regNo' => 'ABC123', 'companyName' => 'ABC Sdn Bhd', 'entityType' => 'company']);
+
+        $repo = new SsmCaseRepository($this->fixturesPath);
+        $matches = $repo->searchByName('abc', 'limited_liability_partnerships');
+
+        $this->assertCount(1, $matches);
+        $this->assertSame('abc-plt', $matches[0]['key']);
+    }
+
     public function test_all_ignores_entries_without_meta_json(): void
     {
         mkdir($this->fixturesPath.'/not-a-case', 0777, true);
