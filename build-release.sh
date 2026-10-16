@@ -5,9 +5,20 @@
 # and point a subdomain's document root at <extracted-dir>/public.
 #
 # Usage:
-#   APP_URL=https://ssm-mock.example.com ./build-release.sh
+#   ./build-release.sh
 #
-# Optional env vars:
+# On start the script scans the repo root for release env files (`.env.*`, except
+# `.env.example`) and asks which one to load; its values fill in any of the variables
+# below that are not already set in the shell. Pick "none" to use the shell
+# environment only. `.env` itself is never offered - it is the local dev config.
+#
+#   RELEASE_ENV_FILE=.env.production        - load that file without asking
+#   RELEASE_ENV_FILE=none                   - skip the scan and prompt entirely
+#   DRY_RUN=1                               - print the resolved settings and exit
+#                                             before anything is built
+#
+# Env vars (set in the shell or in the chosen env file):
+#   APP_URL                                 - required, the public URL of the deployment
 #   ADMIN_EMAIL, ADMIN_PASSWORD            - fixed values instead of random/default ones
 #                                             for the seeded admin account
 #   SENANGPAY_SECRET_KEYS, MOCK_REDIRECT_URL - baked into the production .env for the
@@ -30,7 +41,95 @@ for bin in php composer npm zip git openssl; do
   command -v "$bin" >/dev/null 2>&1 || { echo "error: '$bin' is required but not found in PATH" >&2; exit 1; }
 done
 
-: "${APP_URL:?Set APP_URL, e.g. APP_URL=https://ssm-mock.example.com ./build-release.sh}"
+# Variables a release env file may set. Values already exported in the shell win over
+# the file, so `APP_URL=... ./build-release.sh` still overrides a chosen file.
+RELEASE_VARS=(APP_URL ADMIN_EMAIL ADMIN_PASSWORD SENANGPAY_SECRET_KEYS MOCK_REDIRECT_URL SKIP_TESTS ALLOW_DIRTY)
+
+load_release_env_file() {
+  local file=$1 var saved
+  # Remember values already set in the shell (bash 3.2 on macOS: no associative arrays).
+  for var in "${RELEASE_VARS[@]}"; do
+    if [[ -n "${!var:-}" ]]; then
+      printf -v "preset_$var" '%s' "${!var}"
+    else
+      unset "preset_$var"
+    fi
+  done
+  set -a
+  # shellcheck disable=SC1090
+  source "$file"
+  set +a
+  for var in "${RELEASE_VARS[@]}"; do
+    saved="preset_$var"
+    [[ -n "${!saved:-}" ]] && printf -v "$var" '%s' "${!saved}"
+  done
+  echo "==> Loaded $file"
+}
+
+choose_release_env_file() {
+  local candidates=() f choice
+  for f in .env.*; do
+    [[ -f "$f" && "$f" != ".env.example" ]] && candidates+=("$f")
+  done
+  if [[ ${#candidates[@]} -eq 0 ]]; then
+    echo "==> No release env files found (looked for .env.* next to this script); using the shell environment"
+    return
+  fi
+  if [[ ! -t 0 ]]; then
+    echo "==> Not a terminal; using the shell environment. Set RELEASE_ENV_FILE=<file> to load one." >&2
+    return
+  fi
+  echo "==> Release env files found:"
+  local i
+  for i in "${!candidates[@]}"; do
+    printf '  %d) %s\n' "$((i + 1))" "${candidates[$i]}"
+  done
+  printf '  0) none - use the shell environment only\n'
+  while true; do
+    read -r -p "Load which? [1]: " choice
+    choice=${choice:-1}
+    if [[ "$choice" == "0" ]]; then
+      echo "==> Using the shell environment only"
+      return
+    fi
+    if [[ "$choice" =~ ^[0-9]+$ && "$choice" -ge 1 && "$choice" -le ${#candidates[@]} ]]; then
+      load_release_env_file "${candidates[$((choice - 1))]}"
+      return
+    fi
+    echo "  enter a number between 0 and ${#candidates[@]}" >&2
+  done
+}
+
+case "${RELEASE_ENV_FILE:-}" in
+  "")   choose_release_env_file ;;
+  none) echo "==> RELEASE_ENV_FILE=none; using the shell environment only" ;;
+  *)
+    [[ -f "$RELEASE_ENV_FILE" ]] || { echo "error: RELEASE_ENV_FILE '$RELEASE_ENV_FILE' not found" >&2; exit 1; }
+    load_release_env_file "$RELEASE_ENV_FILE"
+    ;;
+esac
+
+: "${APP_URL:?Set APP_URL in the shell or in a release env file, e.g. APP_URL=https://ssm-mock.example.com}"
+
+if [[ -n "${DRY_RUN:-}" ]]; then
+  echo "==> Dry run; resolved settings:"
+  printf '  %-22s %s\n' APP_URL "$APP_URL"
+  printf '  %-22s %s\n' ADMIN_EMAIL "${ADMIN_EMAIL:-admin@ssm-mock.local (default)}"
+  if [[ -n "${ADMIN_PASSWORD:-}" ]]; then
+    printf '  %-22s %s\n' ADMIN_PASSWORD "<set>"
+  else
+    printf '  %-22s %s\n' ADMIN_PASSWORD "<random>"
+  fi
+  if [[ -n "${SENANGPAY_SECRET_KEYS:-}" ]]; then
+    printf '  %-22s %s\n' SENANGPAY_SECRET_KEYS "<set, ${#SENANGPAY_SECRET_KEYS} chars>"
+  else
+    printf '  %-22s %s\n' SENANGPAY_SECRET_KEYS "<unset - payment mock will answer 503>"
+  fi
+  printf '  %-22s %s\n' MOCK_REDIRECT_URL "${MOCK_REDIRECT_URL:-<unset>}"
+  printf '  %-22s %s\n' SKIP_TESTS "${SKIP_TESTS:-<unset>}"
+  printf '  %-22s %s\n' ALLOW_DIRTY "${ALLOW_DIRTY:-<unset>}"
+  exit 0
+fi
 
 if [[ -z "${ALLOW_DIRTY:-}" && -n "$(git status --porcelain)" ]]; then
   echo "error: uncommitted or untracked changes present. Commit them first (only" >&2

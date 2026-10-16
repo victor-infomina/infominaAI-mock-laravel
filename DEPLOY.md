@@ -3,7 +3,22 @@
 ## 1. Build the release
 
     cd infominaAI-ssm-mock
-    APP_URL=https://<your-domain> ./build-release.sh
+    ./build-release.sh
+
+The script scans the repo root for release env files (`.env.*`, except `.env.example`;
+`.env` itself is the local dev config and is never offered) and asks which one to load.
+Keep the per-deployment settings in a gitignored file such as `.env.production`:
+
+    APP_URL=https://<your-domain>
+    SENANGPAY_SECRET_KEYS='localhost=<local BE key>;dev-aiexe.infomina.ai=<dev BE key>'
+    ADMIN_EMAIL=<admin login>
+    ADMIN_PASSWORD=<admin password>
+
+Values already exported in the shell win over the file, so
+`APP_URL=https://other ./build-release.sh` still overrides. For scripted builds pass
+`RELEASE_ENV_FILE=.env.production` to skip the prompt, or `RELEASE_ENV_FILE=none` to use
+the shell environment only. `DRY_RUN=1` prints the resolved settings (secrets masked) and
+exits without building.
 
 Requires `php`, `composer`, `npm`, `zip`, `git`, `openssl` on your machine. It runs the
 test suite, vendors production dependencies, builds frontend assets, generates `APP_KEY`,
