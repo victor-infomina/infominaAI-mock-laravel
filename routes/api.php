@@ -3,6 +3,7 @@
 use App\Http\Controllers\AsiaverifyMockController;
 use App\Http\Controllers\CaseUploadController;
 use App\Http\Controllers\DnbMockController;
+use App\Http\Controllers\InvolvementUploadController;
 use App\Http\Controllers\LlmMockController;
 use App\Http\Controllers\PaymentMockController;
 use App\Http\Controllers\ReportController;
@@ -35,6 +36,7 @@ Route::middleware('verify.gateway')->group(function () {
 
 Route::middleware('verify.gateway:admin_sync')->group(function () {
     Route::post('/admin-api/cases', [CaseUploadController::class, 'store']);
+    Route::post('/admin-api/involvements', [InvolvementUploadController::class, 'store']);
 });
 
 // Senangpay-protocol payment mock. Deliberately unauthenticated: the browser
