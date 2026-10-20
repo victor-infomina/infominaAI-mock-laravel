@@ -58,12 +58,13 @@ on the FE config page (or call `PUT /ssm-gateway-session/captcha-sitekey`) befor
 - `POST /ssm-gateway/company/search` — `{search: <regNo>}` matched against the SSM case folders above (`meta.json` `regNo`). `slug` is the case key.
 - `POST /ssm-gateway/company/get-info` — `{slug}`.
 - `POST /ssm-gateway/product/list`, `/product/list-by-company` — static catalogue mirroring the BE's **staging** variant-id table (`ssm-variant-ids.stg.const.ts`).
-- `POST /ssm-gateway/personal-involvement/submission` — `{idType, idValue}` → `data.selectionRefNo` (`PI-<idValue>`) when an involvement fixture exists, else 404.
+- `POST /ssm-gateway/personal-involvement/submission` — `{idType, idValue}` → `data.selectionRefNo` (`PI-<idValue>`, always the submitted IC) when the IC has its own involvement fixture or a default IC is set, else 404.
 - `POST /ssm-gateway/cart/add-item` → `cart_id`; `/order/init-checkout-page`; `/payment/ssm-product` → `bill_id`; `/order/init-thank-you-page` → `ref_no`; `/order/init-order-page` → `detail.items[0].children[0].download_url`.
-- `GET /reports/{caseKey}.pdf` and `GET /ssm-gateway/involvement-reports/{idValue}.pdf` — the `download_url` targets, unauthenticated like the real pre-signed links.
+- `GET /reports/{caseKey}.pdf` and `GET /ssm-gateway/involvement-reports/{idValue}/{identity}.pdf` — the `download_url` targets, unauthenticated like the real pre-signed links. The involvement URL names the fixture IC that serves it and the exact variant (see below).
 - `POST /ssm-gateway/file/upload`, `/helpdesk/submit` — stubs so "Report issue" works.
 
-Every variant id serves the case's single `report.pdf`. Error responses are `{"message": "..."}`
+Every company variant id serves the case's single `report.pdf`; involvement variants serve per-variant
+samples (next section). Error responses are `{"message": "..."}`
 with a 4xx status, which is what the BE's error extractor reads. Not mocked (the BE never
 calls them): `cart/count`, `cart/load-detail`, `order/list`. State (carts/orders) is in the
 sqlite `ssm_gateway_order` table.
@@ -256,14 +257,30 @@ Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
 
 ## Adding an SSM Gateway involvement test case
 
-Company purchases need no extra fixtures — they reuse the SSM case folders. Personal-involvement
-purchases (director/shareholder/… involvement products) look up
-`storage/app/ssm-gateway-fixtures/involvements/{idValue}/` containing:
+Company purchases need no extra fixtures — they reuse the SSM case folders. Director, Shareholder
+and Secretary involvement purchases look up `storage/app/ssm-gateway-fixtures/involvements/{idValue}/`
+containing:
 
-- `meta.json` — `{ "idType": "MK", "idValue": "900101015555", "name": "AHMAD BIN ALI" }` (`idValue` is the folder name; `idType` is informational).
-- `report.pdf` — returned for every involvement variant.
+- `meta.json` — `{ "idType": "MK", "idValue": "900101015555", "name": "AHMAD BIN ALI" }`. `idValue` must equal
+  the folder name and all three fields must be non-empty strings, otherwise the folder is unusable.
+- One PDF per purchased variant, named `{product}-{ctc|plain}-{en|my}.pdf` with product `director`,
+  `shareholder` or `secretary` — 12 names in all, e.g. `director-plain-en.pdf`, `shareholder-ctc-my.pdf`.
 
-One example (`900101015555`) ships with the repo.
+The order's **staging** variant id picks the file. Nothing is substituted: if the exact file is
+missing, or the variant is another involvement product (Partner, Auditor, Liquidator, Business
+Ownership), the order reports `download_url: null` with a `gen_error` naming what is missing, once
+the report delay has elapsed.
+
+**Default IC.** `involvements/default.json` (`{"idValue":"900101015555"}`) names the IC whose samples
+serve any submitted IC without its own folder. An IC with its own folder always uses it, even when
+that folder is incomplete or its `meta.json` is broken — it never falls back. The order keeps the
+submitted IC (`PI-<submitted IC>`, `personal_involvement.id_value`, `reg_no`); name and ID type come
+from the sample's `meta.json`, and the PDF is served unchanged. A returned `download_url` names the
+source IC, so changing the default later does not change what that URL serves.
+
+The shipped example `900101015555` is the default and holds only `director-plain-en.pdf`; other
+involvement variants return `gen_error` until real samples are imported. The legacy single
+`report.pdf` per IC and its `/involvement-reports/{idValue}.pdf` route are no longer served.
 
 ## Environment variables
 

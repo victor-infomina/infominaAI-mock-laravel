@@ -29,7 +29,7 @@ class SsmGatewayEndToEndRoundTripTest extends TestCase
         file_put_contents($inv.'/900101015555/meta.json', json_encode([
             'idType' => 'MK', 'idValue' => '900101015555', 'name' => 'AHMAD BIN ALI',
         ]));
-        file_put_contents($inv.'/900101015555/report.pdf', '%PDF-1.4 involvement');
+        file_put_contents($inv.'/900101015555/director-plain-en.pdf', '%PDF-1.4 involvement');
         config(['ssm_gateway_mock.involvements_path' => $inv]);
 
         // Step 0: the BE's login/complete → POST /user/login
