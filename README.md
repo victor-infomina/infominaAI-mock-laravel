@@ -282,6 +282,55 @@ The shipped example `900101015555` is the default and holds only `director-plain
 involvement variants return `gen_error` until real samples are imported. The legacy single
 `report.pdf` per IC and its `/involvement-reports/{idValue}.pdf` route are no longer served.
 
+### Importing involvement samples from production
+
+`ssm:import-involvements` builds these folders from real production purchases. Like
+`ssm:import-cases` it needs no BE database connection: only `SSM_S3_BUCKET` / `SSM_S3_REGION`
+(pointed at the bucket the production BE's `AWS_BUCKET_NAME` names) and, for `--push`, the
+`SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_*` env.
+
+1. Export a CSV from the **production** BE database with the header
+   `identification_type,identification_no,subject_name,variant_id,pdf_s3_key`:
+
+       select distinct on (pip.identification_no, q.variant_id)
+              pip.identification_type,
+              pip.identification_no,
+              pip.subject_name,
+              q.variant_id,
+              pip.pdf_s3_url as pdf_s3_key
+       from personal_involvement_purchased pip
+       join ssm_purchase_queue q on q.id = pip.ssm_purchase_queue_id
+       where pip.status = 'ready'
+         and pip.pdf_s3_url is not null
+         and pip.deleted_at is null
+         and q.variant_id in (1060,1062,1059,1061, 1057,1055,1058,1056, 1053,1051,1054,1052)
+       order by pip.identification_no, q.variant_id, pip.created_at desc;
+
+   `pdf_s3_url` holds a bare S3 key despite its name. `variant_id` is a **production** id: the
+   importer maps it through the production table to the file name, while served orders carry
+   **staging** ids (the two environments reuse the same numbers for different products, e.g. 1045).
+   Rows for any other variant are warned about and skipped. Columns may appear in any order.
+
+2. Import locally, naming the default IC:
+
+       php artisan ssm:import-involvements /path/to/involvements.csv --default=900101015555
+
+3. Or push to the deployed instance instead. Each IC is sent to `POST /admin-api/involvements`
+   (`admin_sync` credential, multipart `bundle` zip of `{IC}/meta.json` + `{IC}/{identity}.pdf`, and
+   `set_default` `0`/`1`); local fixtures and the local default are not touched:
+
+       php artisan ssm:import-involvements /path/to/involvements.csv --default=900101015555 --push
+
+The whole CSV is checked before anything is downloaded: header, empty fields, IC format (letters,
+digits, `-`, `_`; leading zeroes are kept), duplicate IC/variant pairs, conflicting name/ID type for
+one IC, and `--default` naming an IC with at least one supported row. Each IC is then downloaded
+into a temporary folder. If any of its rows fails, the errors are listed, that IC's existing folder
+(and the default, if it was that IC) are kept, and the other ICs still import; the command then
+exits non-zero. A successful IC **replaces** its folder: variants absent from the CSV are removed.
+The default marker moves only after the default IC is published. For every IC the command prints
+the imported and missing variants. Partial coverage is allowed; missing ones `gen_error` when bought.
+Do not commit real CSV rows or production PDFs.
+
 ## Environment variables
 
 - `APP_URL` — must be this app's real public URL; it's used to build the `documentUrl` field `infominaAI-BE` fetches directly.
@@ -292,8 +341,8 @@ involvement variants return `gen_error` until real samples are imported. The leg
 - `SENANGPAY_SECRET_KEYS` — required by the payment mock: `frontend-host=secret` pairs separated by `;` (e.g. `localhost=…;dev-aiexe.infomina.ai=…;staging-aiexe.infomina.ai=…`). Each secret must equal the `SENANGPAY_SECRET_KEY` of the `infominaAI-BE` serving that frontend, since that BE verifies the callback hash. Hosts not listed cannot use the mock. Hostnames are matched case-insensitively, ignoring port.
 - `MOCK_REDIRECT_URL` — optional fallback frontend origin for the mock payment page, used only when the browser sent neither `Origin` nor `Referer` (HTTPS→HTTP downgrade, or a scripted caller) and no `return_url` field was posted. Normally unnecessary: the origin is detected from the request. The tester can always edit it on the page.
 - `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
-- `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool, `ssm:download-response` and `ssm:import-cases` to pull raw JSON, PDF reports and Idaman document content.
-- `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool and `ssm:import-cases --push` (see above); unused otherwise.
+- `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool, `ssm:download-response`, `ssm:import-cases` and `ssm:import-involvements` to pull raw JSON, PDF reports, Idaman document content and involvement samples.
+- `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool, `ssm:import-cases --push` and `ssm:import-involvements --push` (see above); unused otherwise.
 - `SSM_GATEWAY_MOCK_TOKEN_TTL_SECONDS` — lifetime of bearer tokens issued by `POST /ssm-gateway/user/login` (defaults to `86400`); after expiry the FE config page shows the token as invalid and the operator logs in again.
 - `SSM_GATEWAY_MOCK_REPORT_DELAY_SECONDS` — seconds after `cart/add-item` before `order/init-order-page` reports a `download_url` (defaults to `0`, i.e. immediately); set it to exercise the BE's AWAITING_PDF path.
 - `SSM_GATEWAY_MOCK_INVOLVEMENTS_PATH` — optional override for the involvement fixture directory (defaults to `storage/app/ssm-gateway-fixtures/involvements`).
