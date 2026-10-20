@@ -11,7 +11,7 @@ class SsmGatewayLoginPageTest extends TestCase
         $response = $this->get('/ssm-gateway/login');
 
         $response->assertOk();
-        $response->assertHeader('Content-Type', 'text/html; charset=UTF-8');
+        $this->assertSame('text/html; charset=utf-8', strtolower($response->headers->get('Content-Type')));
         $response->assertSee('class="g-recaptcha"', false);
         $response->assertSee('data-sitekey="6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"', false);
         $response->assertSee('https://www.google.com/recaptcha/api.js', false);
