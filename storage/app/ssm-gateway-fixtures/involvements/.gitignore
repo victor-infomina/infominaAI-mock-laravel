@@ -1,0 +1,7 @@
+# Imported samples are real production PDFs and personal data: keep them out of git.
+# Only the shipped example and the default marker are tracked.
+*
+!.gitignore
+!default.json
+!900101015555/
+!900101015555/**

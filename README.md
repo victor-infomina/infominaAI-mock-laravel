@@ -329,7 +329,9 @@ into a temporary folder. If any of its rows fails, the errors are listed, that I
 exits non-zero. A successful IC **replaces** its folder: variants absent from the CSV are removed.
 The default marker moves only after the default IC is published. For every IC the command prints
 the imported and missing variants. Partial coverage is allowed; missing ones `gen_error` when bought.
-Do not commit real CSV rows or production PDFs.
+Imported IC folders and the importer's temporary entries are git-ignored by
+`involvements/.gitignore`, which tracks only the shipped `900101015555/` and `default.json`. A local
+import still changes the tracked `default.json`, so revert it before committing. Do not commit real CSV rows or production PDFs.
 
 ## Environment variables
 
