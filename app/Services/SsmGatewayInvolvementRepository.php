@@ -10,6 +10,8 @@ class SsmGatewayInvolvementRepository
 
     public const DEFAULT_MARKER = 'default.json';
 
+    public const CATCH_ALL_REPORT = 'default.pdf';
+
     public function __construct(private readonly string $basePath) {}
 
     /**
@@ -59,12 +61,40 @@ class SsmGatewayInvolvementRepository
             return $this->find($submittedId);
         }
 
+        $defaultId = $this->defaultId();
+
+        return $defaultId === null ? null : $this->find($defaultId);
+    }
+
+    /**
+     * True when the fixture is the default IC's, whether reached by fallback or bought directly.
+     */
+    public function isDefault(array $involvement): bool
+    {
+        return $involvement['key'] === $this->defaultId();
+    }
+
+    /**
+     * The shared PDF served for any involvement product the default IC has no exact sample for.
+     */
+    public function catchAllReportFile(): ?string
+    {
+        $file = $this->basePath.'/'.self::CATCH_ALL_REPORT;
+
+        return is_file($file) && ! is_link($file) ? $file : null;
+    }
+
+    public function catchAllReportUrl(): string
+    {
+        return route('ssm-gateway.involvement-default-report');
+    }
+
+    private function defaultId(): ?string
+    {
         $marker = $this->basePath.'/'.self::DEFAULT_MARKER;
         $default = is_file($marker) ? json_decode(file_get_contents($marker), true) : null;
 
-        return is_array($default) && is_string($default['idValue'] ?? null)
-            ? $this->find($default['idValue'])
-            : null;
+        return is_array($default) && is_string($default['idValue'] ?? null) ? $default['idValue'] : null;
     }
 
     public function reportFile(array $involvement, string $identity): ?string

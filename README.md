@@ -278,6 +278,12 @@ submitted IC (`PI-<submitted IC>`, `personal_involvement.id_value`, `reg_no`); n
 from the sample's `meta.json`, and the PDF is served unchanged. A returned `download_url` names the
 source IC, so changing the default later does not change what that URL serves.
 
+**Shared fallback PDF.** If `involvements/default.pdf` exists, it is served whenever the default IC
+has no exact file for what was bought, including Partner, Auditor, Liquidator and Business
+Ownership. This covers ICs served by the default and the default IC itself; an IC with its own
+folder never uses it. URL: `/ssm-gateway/involvement-reports/default.pdf`. Remove the file to go
+back to `gen_error` for missing variants.
+
 The shipped example `900101015555` is the default and holds only `director-plain-en.pdf`; other
 involvement variants return `gen_error` until real samples are imported. The legacy single
 `report.pdf` per IC and its `/involvement-reports/{idValue}.pdf` route are no longer served.

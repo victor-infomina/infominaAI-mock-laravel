@@ -218,6 +218,26 @@ class SsmGatewayInvolvementTest extends TestCase
         $this->get('/ssm-gateway/involvement-reports/900101015555.pdf')->assertStatus(404);
     }
 
+    public function test_catch_all_route_serves_default_pdf_without_auth(): void
+    {
+        $this->get('/ssm-gateway/involvement-reports/default.pdf')->assertStatus(404);
+
+        file_put_contents($this->root.'/default.pdf', '%PDF-1.4 catch-all');
+
+        $this->assertSame('%PDF-1.4 catch-all', $this->pdfBody('/ssm-gateway/involvement-reports/default.pdf'));
+        $this->get('/ssm-gateway/involvement-reports/default.pdf')->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_unknown_ic_buys_any_variant_through_catch_all(): void
+    {
+        $this->setDefault('900101015555');
+        file_put_contents($this->root.'/default.pdf', '%PDF-1.4 catch-all');
+
+        $url = $this->buy('000000000010', 1039)->assertJsonPath('cart.children.0.gen_error', null)->json('cart.children.0.download_url');
+
+        $this->assertSame('%PDF-1.4 catch-all', $this->pdfBody($url));
+    }
+
     public function test_shipped_example_fixture_is_the_default(): void
     {
         $root = storage_path('app/ssm-gateway-fixtures/involvements');

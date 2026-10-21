@@ -172,6 +172,78 @@ class SsmGatewayCartItemBuilderTest extends TestCase
         Carbon::setTestNow();
     }
 
+    private function withCatchAll(): void
+    {
+        file_put_contents($this->inv.'/default.json', json_encode(['idValue' => '900101015555']));
+        file_put_contents($this->inv.'/default.pdf', '%PDF-1.4 catch-all');
+    }
+
+    public function test_fallback_ic_prefers_default_ic_exact_variant_over_catch_all(): void
+    {
+        $this->withCatchAll();
+
+        $url = $this->builder->cartItem($this->involvementOrder(1047, '000000000009'))['children'][0]['download_url'];
+
+        $this->assertStringEndsWith('/900101015555/director-plain-en.pdf', $url);
+    }
+
+    public function test_fallback_ic_gets_catch_all_for_missing_variant(): void
+    {
+        $this->withCatchAll();
+
+        $child = $this->builder->cartItem($this->involvementOrder(1041, '000000000009'))['children'][0];
+
+        $this->assertStringEndsWith('/ssm-gateway/involvement-reports/default.pdf', $child['download_url']);
+        $this->assertNull($child['gen_error']);
+    }
+
+    public function test_fallback_ic_gets_catch_all_for_other_involvement_products(): void
+    {
+        $this->withCatchAll();
+
+        $child = $this->builder->cartItem($this->involvementOrder(1025, '000000000009'))['children'][0];
+
+        $this->assertStringEndsWith('/ssm-gateway/involvement-reports/default.pdf', $child['download_url']);
+        $this->assertNull($child['gen_error']);
+    }
+
+    public function test_default_ic_bought_directly_gets_catch_all(): void
+    {
+        $this->withCatchAll();
+
+        $child = $this->builder->cartItem($this->involvementOrder(1049))['children'][0];
+
+        $this->assertStringEndsWith('/ssm-gateway/involvement-reports/default.pdf', $child['download_url']);
+    }
+
+    public function test_own_folder_ic_never_gets_catch_all(): void
+    {
+        $this->withCatchAll();
+        mkdir($this->inv.'/000000000008');
+        file_put_contents($this->inv.'/000000000008/meta.json', json_encode(['idType' => 'MK', 'idValue' => '000000000008', 'name' => 'OWN']));
+        file_put_contents($this->inv.'/000000000008/director-plain-en.pdf', '%PDF-1.4 own');
+
+        $missing = $this->builder->cartItem($this->involvementOrder(1049, '000000000008'))['children'][0];
+        $unsupported = $this->builder->cartItem($this->involvementOrder(1025, '000000000008'))['children'][0];
+
+        $this->assertNull($missing['download_url']);
+        $this->assertSame('Mock fixture has no director-plain-my.pdf', $missing['gen_error']);
+        $this->assertNull($unsupported['download_url']);
+        $this->assertSame('Mock fixture has no sample for involvement variant 1025', $unsupported['gen_error']);
+    }
+
+    public function test_catch_all_must_be_a_regular_file(): void
+    {
+        file_put_contents($this->inv.'/default.json', json_encode(['idValue' => '900101015555']));
+        file_put_contents($this->inv.'/elsewhere.pdf', '%PDF-1.4 elsewhere');
+        symlink($this->inv.'/elsewhere.pdf', $this->inv.'/default.pdf');
+
+        $child = $this->builder->cartItem($this->involvementOrder(1041, '000000000009'))['children'][0];
+
+        $this->assertNull($child['download_url']);
+        $this->assertSame('Mock fixture has no secretary-ctc-en.pdf', $child['gen_error']);
+    }
+
     public function test_download_url_respects_report_delay(): void
     {
         config(['ssm_gateway_mock.report_delay_seconds' => 60]);

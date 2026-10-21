@@ -43,4 +43,15 @@ class InvolvementController extends Controller
 
         return response()->file($file, ['Content-Type' => 'application/pdf']);
     }
+
+    public function defaultReport(): BinaryFileResponse|JsonResponse
+    {
+        $file = $this->involvements->catchAllReportFile();
+
+        if ($file === null) {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        return response()->file($file, ['Content-Type' => 'application/pdf']);
+    }
 }

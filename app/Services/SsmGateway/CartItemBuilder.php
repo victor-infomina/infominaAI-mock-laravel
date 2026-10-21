@@ -67,20 +67,24 @@ class CartItemBuilder
     private function involvementReportState(SsmGatewayOrder $order): array
     {
         $identity = InvolvementVariant::fromStaging($order->variant_id);
-
-        if ($identity === null) {
-            return [null, 'Mock fixture has no sample for involvement variant '.$order->variant_id];
-        }
-
         $involvement = $this->involvements->resolve($order->subject_key);
 
         if ($involvement === null) {
             return [null, 'Mock fixture has no involvement source for '.$order->subject_key];
         }
 
-        return $this->involvements->reportFile($involvement, $identity) === null
-            ? [null, 'Mock fixture has no '.$identity.'.pdf']
-            : [$this->involvements->reportUrl($involvement, $identity), null];
+        if ($identity !== null && $this->involvements->reportFile($involvement, $identity) !== null) {
+            return [$this->involvements->reportUrl($involvement, $identity), null];
+        }
+
+        // Only the default IC's samples fall back to the shared PDF; an IC with its own folder never does.
+        if ($this->involvements->isDefault($involvement) && $this->involvements->catchAllReportFile() !== null) {
+            return [$this->involvements->catchAllReportUrl(), null];
+        }
+
+        return $identity === null
+            ? [null, 'Mock fixture has no sample for involvement variant '.$order->variant_id]
+            : [null, 'Mock fixture has no '.$identity.'.pdf'];
     }
 
     public function cartItem(SsmGatewayOrder $order): array

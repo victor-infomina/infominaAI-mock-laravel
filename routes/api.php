@@ -54,6 +54,9 @@ Route::prefix('ssm-gateway')->group(function () {
     Route::get('/login', [SsmGatewayAuthController::class, 'loginPage']);
     Route::post('/user/login', [SsmGatewayAuthController::class, 'login']);
 
+    Route::get('/involvement-reports/default.pdf', [SsmGatewayInvolvementController::class, 'defaultReport'])
+        ->name('ssm-gateway.involvement-default-report');
+
     Route::get('/involvement-reports/{idValue}/{identity}.pdf', [SsmGatewayInvolvementController::class, 'report'])
         ->where('idValue', '[A-Za-z0-9_-]+')
         ->where('identity', '(director|shareholder|secretary)-(ctc|plain)-(en|my)')
