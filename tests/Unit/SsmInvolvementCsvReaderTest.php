@@ -220,6 +220,15 @@ class SsmInvolvementCsvReaderTest extends TestCase
         $this->assertRejected($path, '900101015555', 'Default IC 900101015555 has no supported row');
     }
 
+    public function test_null_default_skips_default_check(): void
+    {
+        $path = $this->csv([['MK', '000123456789', 'Sample', '1059', 'ssm/a.pdf']]);
+
+        $result = (new SsmInvolvementCsvReader)->read($path, null);
+
+        $this->assertSame('000123456789', $result['groups'][0]['idValue']);
+    }
+
     public function test_rejects_unreadable_file(): void
     {
         $this->assertRejected('/nonexistent/involvements.csv', '000123456789', 'Cannot open CSV file');

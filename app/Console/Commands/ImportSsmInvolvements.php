@@ -14,7 +14,7 @@ class ImportSsmInvolvements extends Command
 {
     protected $signature = 'ssm:import-involvements
         {csv : CSV with identification_type, identification_no, subject_name, variant_id, pdf_s3_key}
-        {--default= : IC to publish as the default; required}
+        {--default= : IC to publish as the default; required unless --push, where omitting it leaves the remote default unchanged}
         {--push : Publish remotely instead of changing local fixtures}';
 
     protected $description = 'Build SSM Gateway Director / Shareholder / Secretary involvement samples from a production CSV (PDFs pulled from S3), one bundle per IC, writing them locally or pushing to the deployed mock';
@@ -25,7 +25,7 @@ class ImportSsmInvolvements extends Command
         SsmInvolvementBundleInstaller $installer,
         InvolvementBundlePusher $pusher,
     ): int {
-        $defaultId = (string) $this->option('default');
+        $defaultId = $this->option('default') === null ? '' : (string) $this->option('default');
         $push = (bool) $this->option('push');
         $bucket = config('ssm_mock.s3_bucket');
         $root = rtrim((string) config('ssm_gateway_mock.involvements_path'), '/');
@@ -40,10 +40,14 @@ class ImportSsmInvolvements extends Command
             ];
         }
 
-        if ($defaultId === '') {
+        if ($defaultId === '' && ! $push) {
             $this->error('--default is required: name the IC whose samples serve unknown ICs');
 
             return self::FAILURE;
+        }
+
+        if ($defaultId === '') {
+            $this->warn('No --default: the remote default IC is left unchanged');
         }
 
         $missingSettings = array_keys(array_filter($settings, fn ($value) => ! $value));
@@ -55,7 +59,7 @@ class ImportSsmInvolvements extends Command
         }
 
         try {
-            $result = $reader->read($this->argument('csv'), $defaultId);
+            $result = $reader->read($this->argument('csv'), $defaultId === '' ? null : $defaultId);
         } catch (\InvalidArgumentException $e) {
             $this->error($e->getMessage());
 

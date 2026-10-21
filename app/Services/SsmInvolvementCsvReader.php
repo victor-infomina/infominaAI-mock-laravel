@@ -23,7 +23,7 @@ class SsmInvolvementCsvReader
      * @return array{groups: list<array{idValue: string, meta: array{idType: string, idValue: string, name: string},
      *     rows: list<array{line: int, identity: string, pdf_s3_key: string}>}>, warnings: list<string>}
      */
-    public function read(string $path, string $defaultId): array
+    public function read(string $path, ?string $defaultId): array
     {
         $handle = @fopen($path, 'r');
 
@@ -108,7 +108,7 @@ class SsmInvolvementCsvReader
             fclose($handle);
         }
 
-        if (! SsmGatewayInvolvementRepository::isSafeId($defaultId) || ! isset($groups['ic:'.$defaultId])) {
+        if ($defaultId !== null && (! SsmGatewayInvolvementRepository::isSafeId($defaultId) || ! isset($groups['ic:'.$defaultId]))) {
             throw new \InvalidArgumentException("Default IC {$defaultId} has no supported row in the CSV");
         }
 

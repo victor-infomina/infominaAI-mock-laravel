@@ -329,6 +329,9 @@ single `report.pdf` per IC and its `/involvement-reports/{idValue}.pdf` route ar
 
        php artisan ssm:import-involvements /path/to/involvements.csv --default=<an IC in the CSV> --push
 
+   With `--push`, `--default` may be left out: the ICs are published and the deployed default
+   (e.g. the shipped `111111111111`) stays as it is.
+
 The whole CSV is checked before anything is downloaded: header, empty fields, IC format (letters,
 digits, `-`, `_`; leading zeroes are kept), duplicate IC/variant pairs, conflicting name/ID type for
 one IC, and `--default` naming an IC with at least one supported row. Each IC is then downloaded

@@ -275,6 +275,24 @@ class ImportSsmInvolvementsCommandTest extends TestCase
         $this->assertDirectoryDoesNotExist($this->root.'/900101015555');
     }
 
+    public function test_push_without_default_keeps_remote_default(): void
+    {
+        $this->writeCsv([['000123456789', 1059, 'ssm/a.pdf'], ['900101015555', 1053, 'ssm/b.pdf']]);
+        $this->fetcher(['sample-bucket/ssm/a.pdf' => '%PDF-1.4 a', 'sample-bucket/ssm/b.pdf' => '%PDF-1.4 b']);
+        $flags = [];
+        Http::fake(function ($request) use (&$flags) {
+            $flags[] = collect($request->data())->firstWhere('name', 'set_default')['contents'];
+
+            return Http::response(['status' => 'synced']);
+        });
+
+        $this->artisan('ssm:import-involvements', ['csv' => $this->csvPath, '--push' => true])
+            ->expectsOutputToContain('No --default: the remote default IC is left unchanged')
+            ->assertExitCode(0);
+
+        $this->assertSame(['0', '0'], $flags);
+    }
+
     public function test_push_non_success_response_fails(): void
     {
         $this->writeCsv([['000123456789', 1059, 'ssm/a.pdf']]);
