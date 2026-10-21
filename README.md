@@ -261,7 +261,7 @@ Company purchases need no extra fixtures — they reuse the SSM case folders. Di
 and Secretary involvement purchases look up `storage/app/ssm-gateway-fixtures/involvements/{idValue}/`
 containing:
 
-- `meta.json` — `{ "idType": "MK", "idValue": "900101015555", "name": "AHMAD BIN ALI" }`. `idValue` must equal
+- `meta.json` — `{ "idType": "MYKAD", "idValue": "111111111111", "name": "SAMPLE (NO INFORMATION)" }`. `idValue` must equal
   the folder name and all three fields must be non-empty strings, otherwise the folder is unusable.
 - One PDF per purchased variant, named `{product}-{ctc|plain}-{en|my}.pdf` with product `director`,
   `shareholder` or `secretary` — 12 names in all, e.g. `director-plain-en.pdf`, `shareholder-ctc-my.pdf`.
@@ -271,7 +271,7 @@ missing, or the variant is another involvement product (Partner, Auditor, Liquid
 Ownership), the order reports `download_url: null` with a `gen_error` naming what is missing, once
 the report delay has elapsed.
 
-**Default IC.** `involvements/default.json` (`{"idValue":"900101015555"}`) names the IC whose samples
+**Default IC.** `involvements/default.json` (`{"idValue":"111111111111"}`) names the IC whose samples
 serve any submitted IC without its own folder. An IC with its own folder always uses it, even when
 that folder is incomplete or its `meta.json` is broken — it never falls back. The order keeps the
 submitted IC (`PI-<submitted IC>`, `personal_involvement.id_value`, `reg_no`); name and ID type come
@@ -284,9 +284,11 @@ Ownership. This covers ICs served by the default and the default IC itself; an I
 folder never uses it. URL: `/ssm-gateway/involvement-reports/default.pdf`. Remove the file to go
 back to `gen_error` for missing variants.
 
-The shipped example `900101015555` is the default and holds only `director-plain-en.pdf`; other
-involvement variants return `gen_error` until real samples are imported. The legacy single
-`report.pdf` per IC and its `/involvement-reports/{idValue}.pdf` route are no longer served.
+The shipped default `111111111111` is a real SSM Director Involvement (English, non-CTC) report for
+a non-existent IC, so it shows "NO INFORMATION" and holds no personal data. It ships as
+`111111111111/director-plain-en.pdf` and as the shared `default.pdf`, so a fresh install serves it for
+every involvement product. Importing with `--default` moves the marker to an imported IC. The legacy
+single `report.pdf` per IC and its `/involvement-reports/{idValue}.pdf` route are no longer served.
 
 ### Importing involvement samples from production
 
@@ -319,13 +321,13 @@ involvement variants return `gen_error` until real samples are imported. The leg
 
 2. Import locally, naming the default IC:
 
-       php artisan ssm:import-involvements /path/to/involvements.csv --default=900101015555
+       php artisan ssm:import-involvements /path/to/involvements.csv --default=<an IC in the CSV>
 
 3. Or push to the deployed instance instead. Each IC is sent to `POST /admin-api/involvements`
    (`admin_sync` credential, multipart `bundle` zip of `{IC}/meta.json` + `{IC}/{identity}.pdf`, and
    `set_default` `0`/`1`); local fixtures and the local default are not touched:
 
-       php artisan ssm:import-involvements /path/to/involvements.csv --default=900101015555 --push
+       php artisan ssm:import-involvements /path/to/involvements.csv --default=<an IC in the CSV> --push
 
 The whole CSV is checked before anything is downloaded: header, empty fields, IC format (letters,
 digits, `-`, `_`; leading zeroes are kept), duplicate IC/variant pairs, conflicting name/ID type for
@@ -336,7 +338,7 @@ exits non-zero. A successful IC **replaces** its folder: variants absent from th
 The default marker moves only after the default IC is published. For every IC the command prints
 the imported and missing variants. Partial coverage is allowed; missing ones `gen_error` when bought.
 Imported IC folders and the importer's temporary entries are git-ignored by
-`involvements/.gitignore`, which tracks only the shipped `900101015555/` and `default.json`. A local
+`involvements/.gitignore`, which tracks only the shipped `111111111111/`, `default.json` and `default.pdf`. A local
 import still changes the tracked `default.json`, so revert it before committing. Do not commit real CSV rows or production PDFs.
 
 ## Environment variables

@@ -241,10 +241,12 @@ class SsmGatewayInvolvementTest extends TestCase
     public function test_shipped_example_fixture_is_the_default(): void
     {
         $root = storage_path('app/ssm-gateway-fixtures/involvements');
-        $this->assertFileExists($root.'/900101015555/meta.json');
-        $this->assertFileExists($root.'/900101015555/director-plain-en.pdf');
-        $this->assertFileDoesNotExist($root.'/900101015555/report.pdf');
-        $this->assertSame('900101015555', json_decode(file_get_contents($root.'/900101015555/meta.json'), true)['idValue']);
-        $this->assertSame(['idValue' => '900101015555'], json_decode(file_get_contents($root.'/default.json'), true));
+        $meta = json_decode(file_get_contents($root.'/111111111111/meta.json'), true);
+
+        $this->assertSame('111111111111', $meta['idValue']);
+        $this->assertStringStartsWith('%PDF-', file_get_contents($root.'/111111111111/director-plain-en.pdf'));
+        $this->assertStringStartsWith('%PDF-', file_get_contents($root.'/default.pdf'));
+        $this->assertDirectoryDoesNotExist($root.'/900101015555');
+        $this->assertSame(['idValue' => '111111111111'], json_decode(file_get_contents($root.'/default.json'), true));
     }
 }
