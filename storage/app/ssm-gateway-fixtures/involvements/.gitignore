@@ -1,0 +1,8 @@
+# Imported samples are real production PDFs and personal data: keep them out of git.
+# Only the shipped default (a "NO INFORMATION" report, no personal data) and its markers are tracked.
+*
+!.gitignore
+!default.json
+!default.pdf
+!111111111111/
+!111111111111/**

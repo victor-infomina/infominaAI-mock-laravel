@@ -58,12 +58,13 @@ on the FE config page (or call `PUT /ssm-gateway-session/captcha-sitekey`) befor
 - `POST /ssm-gateway/company/search` — `{search: <regNo>}` matched against the SSM case folders above (`meta.json` `regNo`). `slug` is the case key.
 - `POST /ssm-gateway/company/get-info` — `{slug}`.
 - `POST /ssm-gateway/product/list`, `/product/list-by-company` — static catalogue mirroring the BE's **staging** variant-id table (`ssm-variant-ids.stg.const.ts`).
-- `POST /ssm-gateway/personal-involvement/submission` — `{idType, idValue}` → `data.selectionRefNo` (`PI-<idValue>`) when an involvement fixture exists, else 404.
+- `POST /ssm-gateway/personal-involvement/submission` — `{idType, idValue}` → `data.selectionRefNo` (`PI-<idValue>`, always the submitted IC) when the IC has its own involvement fixture or a default IC is set, else 404.
 - `POST /ssm-gateway/cart/add-item` → `cart_id`; `/order/init-checkout-page`; `/payment/ssm-product` → `bill_id`; `/order/init-thank-you-page` → `ref_no`; `/order/init-order-page` → `detail.items[0].children[0].download_url`.
-- `GET /reports/{caseKey}.pdf` and `GET /ssm-gateway/involvement-reports/{idValue}.pdf` — the `download_url` targets, unauthenticated like the real pre-signed links.
+- `GET /reports/{caseKey}.pdf` and `GET /ssm-gateway/involvement-reports/{idValue}/{identity}.pdf` — the `download_url` targets, unauthenticated like the real pre-signed links. The involvement URL names the fixture IC that serves it and the exact variant (see below).
 - `POST /ssm-gateway/file/upload`, `/helpdesk/submit` — stubs so "Report issue" works.
 
-Every variant id serves the case's single `report.pdf`. Error responses are `{"message": "..."}`
+Every company variant id serves the case's single `report.pdf`; involvement variants serve per-variant
+samples (next section). Error responses are `{"message": "..."}`
 with a 4xx status, which is what the BE's error extractor reads. Not mocked (the BE never
 calls them): `cart/count`, `cart/load-detail`, `order/list`. State (carts/orders) is in the
 sqlite `ssm_gateway_order` table.
@@ -256,14 +257,92 @@ Create a folder under `storage/app/dnb-fixtures/cases/{caseKey}/` containing:
 
 ## Adding an SSM Gateway involvement test case
 
-Company purchases need no extra fixtures — they reuse the SSM case folders. Personal-involvement
-purchases (director/shareholder/… involvement products) look up
-`storage/app/ssm-gateway-fixtures/involvements/{idValue}/` containing:
+Company purchases need no extra fixtures — they reuse the SSM case folders. Director, Shareholder
+and Secretary involvement purchases look up `storage/app/ssm-gateway-fixtures/involvements/{idValue}/`
+containing:
 
-- `meta.json` — `{ "idType": "MK", "idValue": "900101015555", "name": "AHMAD BIN ALI" }` (`idValue` is the folder name; `idType` is informational).
-- `report.pdf` — returned for every involvement variant.
+- `meta.json` — `{ "idType": "MYKAD", "idValue": "111111111111", "name": "SAMPLE (NO INFORMATION)" }`. `idValue` must equal
+  the folder name and all three fields must be non-empty strings, otherwise the folder is unusable.
+- One PDF per purchased variant, named `{product}-{ctc|plain}-{en|my}.pdf` with product `director`,
+  `shareholder` or `secretary` — 12 names in all, e.g. `director-plain-en.pdf`, `shareholder-ctc-my.pdf`.
 
-One example (`900101015555`) ships with the repo.
+The order's **staging** variant id picks the file. Nothing is substituted: if the exact file is
+missing, or the variant is another involvement product (Partner, Auditor, Liquidator, Business
+Ownership), the order reports `download_url: null` with a `gen_error` naming what is missing, once
+the report delay has elapsed.
+
+**Default IC.** `involvements/default.json` (`{"idValue":"111111111111"}`) names the IC whose samples
+serve any submitted IC without its own folder. An IC with its own folder always uses it, even when
+that folder is incomplete or its `meta.json` is broken — it never falls back. The order keeps the
+submitted IC (`PI-<submitted IC>`, `personal_involvement.id_value`, `reg_no`); name and ID type come
+from the sample's `meta.json`, and the PDF is served unchanged. A returned `download_url` names the
+source IC, so changing the default later does not change what that URL serves.
+
+**Shared fallback PDF.** If `involvements/default.pdf` exists, it is served whenever the default IC
+has no exact file for what was bought, including Partner, Auditor, Liquidator and Business
+Ownership. This covers ICs served by the default and the default IC itself; an IC with its own
+folder never uses it. URL: `/ssm-gateway/involvement-reports/default.pdf`. Remove the file to go
+back to `gen_error` for missing variants.
+
+The shipped default `111111111111` is a real SSM Director Involvement (English, non-CTC) report for
+a non-existent IC, so it shows "NO INFORMATION" and holds no personal data. It ships as
+`111111111111/director-plain-en.pdf` and as the shared `default.pdf`, so a fresh install serves it for
+every involvement product. Importing with `--default` moves the marker to an imported IC. The legacy
+single `report.pdf` per IC and its `/involvement-reports/{idValue}.pdf` route are no longer served.
+
+### Importing involvement samples from production
+
+`ssm:import-involvements` builds these folders from real production purchases. Like
+`ssm:import-cases` it needs no BE database connection: only `SSM_S3_BUCKET` / `SSM_S3_REGION`
+(pointed at the bucket the production BE's `AWS_BUCKET_NAME` names) and, for `--push`, the
+`SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_*` env.
+
+1. Export a CSV from the **production** BE database with the header
+   `identification_type,identification_no,subject_name,variant_id,pdf_s3_key`:
+
+       select distinct on (pip.identification_no, q.variant_id)
+              pip.identification_type,
+              pip.identification_no,
+              pip.subject_name,
+              q.variant_id,
+              pip.pdf_s3_url as pdf_s3_key
+       from personal_involvement_purchased pip
+       join ssm_purchase_queue q on q.id = pip.ssm_purchase_queue_id
+       where pip.status = 'ready'
+         and pip.pdf_s3_url is not null
+         and pip.deleted_at is null
+         and q.variant_id in (1060,1062,1059,1061, 1057,1055,1058,1056, 1053,1051,1054,1052)
+       order by pip.identification_no, q.variant_id, pip.created_at desc;
+
+   `pdf_s3_url` holds a bare S3 key despite its name. `variant_id` is a **production** id: the
+   importer maps it through the production table to the file name, while served orders carry
+   **staging** ids (the two environments reuse the same numbers for different products, e.g. 1045).
+   Rows for any other variant are warned about and skipped. Columns may appear in any order.
+
+2. Import locally, naming the default IC:
+
+       php artisan ssm:import-involvements /path/to/involvements.csv --default=<an IC in the CSV>
+
+3. Or push to the deployed instance instead. Each IC is sent to `POST /admin-api/involvements`
+   (`admin_sync` credential, multipart `bundle` zip of `{IC}/meta.json` + `{IC}/{identity}.pdf`, and
+   `set_default` `0`/`1`); local fixtures and the local default are not touched:
+
+       php artisan ssm:import-involvements /path/to/involvements.csv --default=<an IC in the CSV> --push
+
+   With `--push`, `--default` may be left out: the ICs are published and the deployed default
+   (e.g. the shipped `111111111111`) stays as it is.
+
+The whole CSV is checked before anything is downloaded: header, empty fields, IC format (letters,
+digits, `-`, `_`; leading zeroes are kept), duplicate IC/variant pairs, conflicting name/ID type for
+one IC, and `--default` naming an IC with at least one supported row. Each IC is then downloaded
+into a temporary folder. If any of its rows fails, the errors are listed, that IC's existing folder
+(and the default, if it was that IC) are kept, and the other ICs still import; the command then
+exits non-zero. A successful IC **replaces** its folder: variants absent from the CSV are removed.
+The default marker moves only after the default IC is published. For every IC the command prints
+the imported and missing variants. Partial coverage is allowed; missing ones `gen_error` when bought.
+Imported IC folders and the importer's temporary entries are git-ignored by
+`involvements/.gitignore`, which tracks only the shipped `111111111111/`, `default.json` and `default.pdf`. A local
+import still changes the tracked `default.json`, so revert it before committing. Do not commit real CSV rows or production PDFs.
 
 ## Environment variables
 
@@ -275,8 +354,8 @@ One example (`900101015555`) ships with the repo.
 - `SENANGPAY_SECRET_KEYS` — required by the payment mock: `frontend-host=secret` pairs separated by `;` (e.g. `localhost=…;dev-aiexe.infomina.ai=…;staging-aiexe.infomina.ai=…`). Each secret must equal the `SENANGPAY_SECRET_KEY` of the `infominaAI-BE` serving that frontend, since that BE verifies the callback hash. Hosts not listed cannot use the mock. Hostnames are matched case-insensitively, ignoring port.
 - `MOCK_REDIRECT_URL` — optional fallback frontend origin for the mock payment page, used only when the browser sent neither `Origin` nor `Referer` (HTTPS→HTTP downgrade, or a scripted caller) and no `return_url` field was posted. Normally unnecessary: the origin is detected from the request. The tester can always edit it on the page.
 - `BE_DB_HOST` / `BE_DB_PORT` / `BE_DB_DATABASE` / `BE_DB_USERNAME` / `BE_DB_PASSWORD` — read-only connection to `infominaAI-BE`'s database, used by the Sync Cases tool (and `ssm:download-response`) to look up entities/requests. Copy values from `infominaAI-BE/env/.env.devcontainer.local`.
-- `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool, `ssm:download-response` and `ssm:import-cases` to pull raw JSON, PDF reports and Idaman document content.
-- `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool and `ssm:import-cases --push` (see above); unused otherwise.
+- `SSM_S3_ACCESS_KEY_ID` / `SSM_S3_SECRET_ACCESS_KEY` / `SSM_S3_REGION` / `SSM_S3_BUCKET` — the real S3 bucket the SSM raw/transformed JSON and PDF reports live in, used by the Sync Cases tool, `ssm:download-response`, `ssm:import-cases` and `ssm:import-involvements` to pull raw JSON, PDF reports, Idaman document content and involvement samples.
+- `SSM_MOCK_REMOTE_URL` / `SSM_MOCK_ADMIN_SYNC_KEY` / `SSM_MOCK_ADMIN_SYNC_SECRET` — push target and `admin_sync`-purpose credential for the local Sync Cases tool, `ssm:import-cases --push` and `ssm:import-involvements --push` (see above); unused otherwise.
 - `SSM_GATEWAY_MOCK_TOKEN_TTL_SECONDS` — lifetime of bearer tokens issued by `POST /ssm-gateway/user/login` (defaults to `86400`); after expiry the FE config page shows the token as invalid and the operator logs in again.
 - `SSM_GATEWAY_MOCK_REPORT_DELAY_SECONDS` — seconds after `cart/add-item` before `order/init-order-page` reports a `download_url` (defaults to `0`, i.e. immediately); set it to exercise the BE's AWAITING_PDF path.
 - `SSM_GATEWAY_MOCK_INVOLVEMENTS_PATH` — optional override for the involvement fixture directory (defaults to `storage/app/ssm-gateway-fixtures/involvements`).

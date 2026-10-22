@@ -47,15 +47,7 @@ class CartItemBuilder
         }
 
         if ($order->isInvolvement()) {
-            $involvement = $this->involvements->find($order->subject_key);
-
-            if ($involvement === null) {
-                return [null, null];
-            }
-
-            return $this->involvements->reportFile($involvement) === null
-                ? [null, self::MISSING_REPORT_ERROR]
-                : [$this->involvements->reportUrl($involvement), null];
+            return $this->involvementReportState($order);
         }
 
         $case = $this->companies->findBySlug($order->subject_key);
@@ -69,6 +61,32 @@ class CartItemBuilder
             : [null, self::MISSING_REPORT_ERROR];
     }
 
+    /**
+     * @return array{0: ?string, 1: ?string} [download_url, gen_error]
+     */
+    private function involvementReportState(SsmGatewayOrder $order): array
+    {
+        $identity = InvolvementVariant::fromStaging($order->variant_id);
+        $involvement = $this->involvements->resolve($order->subject_key);
+
+        if ($involvement === null) {
+            return [null, 'Mock fixture has no involvement source for '.$order->subject_key];
+        }
+
+        if ($identity !== null && $this->involvements->reportFile($involvement, $identity) !== null) {
+            return [$this->involvements->reportUrl($involvement, $identity), null];
+        }
+
+        // Only the default IC's samples fall back to the shared PDF; an IC with its own folder never does.
+        if ($this->involvements->isDefault($involvement) && $this->involvements->catchAllReportFile() !== null) {
+            return [$this->involvements->catchAllReportUrl(), null];
+        }
+
+        return $identity === null
+            ? [null, 'Mock fixture has no sample for involvement variant '.$order->variant_id]
+            : [null, 'Mock fixture has no '.$identity.'.pdf'];
+    }
+
     public function cartItem(SsmGatewayOrder $order): array
     {
         $variant = $this->catalogue->findVariant($order->variant_id) ?? [
@@ -78,7 +96,7 @@ class CartItemBuilder
         [$downloadUrl, $genError] = $this->reportState($order);
 
         if ($order->isInvolvement()) {
-            $involvement = $this->involvements->find($order->subject_key);
+            $involvement = $this->involvements->resolve($order->subject_key);
             $meta = $involvement['meta'] ?? [];
             $ref = SsmGatewayInvolvementRepository::selectionRefNo($order->subject_key);
             $comId = $ref;

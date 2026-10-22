@@ -40,7 +40,7 @@ class OrderController extends Controller
 
         if ($request->boolean('personal_involvement')) {
             $idValue = SsmGatewayInvolvementRepository::idValueFromRef($companyId);
-            $involvement = $idValue !== null ? $this->involvements->find($idValue) : null;
+            $involvement = $idValue !== null ? $this->involvements->resolve($idValue) : null;
 
             if ($involvement === null) {
                 return response()->json(['message' => 'Invalid selection reference'], 404);
@@ -48,9 +48,9 @@ class OrderController extends Controller
 
             $attributes = [
                 'kind' => SsmGatewayOrder::KIND_INVOLVEMENT,
-                'subject_key' => $involvement['key'],
-                'reg_no' => $involvement['key'],
-                'name' => (string) ($involvement['meta']['name'] ?? $involvement['key']),
+                'subject_key' => $idValue,
+                'reg_no' => $idValue,
+                'name' => (string) $involvement['meta']['name'],
             ];
         } else {
             $case = ctype_digit($companyId) ? $this->companies->findById((int) $companyId) : null;

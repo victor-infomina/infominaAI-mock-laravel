@@ -2,44 +2,120 @@
 
 namespace App\Services;
 
+use App\Services\SsmGateway\InvolvementVariant;
+
 class SsmGatewayInvolvementRepository
 {
     private const REF_PREFIX = 'PI-';
 
+    public const DEFAULT_MARKER = 'default.json';
+
+    public const CATCH_ALL_REPORT = 'default.pdf';
+
     public function __construct(private readonly string $basePath) {}
 
+    /**
+     * Exact lookup of one IC's own fixture folder; never falls back to the default.
+     */
     public function find(string $idValue): ?array
     {
-        if (! preg_match('/^[A-Za-z0-9_-]+$/', $idValue)) {
+        if (! self::isSafeId($idValue)) {
             return null;
         }
 
         $path = $this->basePath.'/'.$idValue;
         $metaPath = $path.'/meta.json';
 
-        if (! is_file($metaPath)) {
+        if (is_link($path) || ! is_dir($path) || ! is_file($metaPath)) {
             return null;
         }
 
         $meta = json_decode(file_get_contents($metaPath), true);
 
-        if (! is_array($meta)) {
+        if (! is_array($meta) || ($meta['idValue'] ?? null) !== $idValue) {
             return null;
+        }
+
+        foreach (['idType', 'idValue', 'name'] as $field) {
+            if (! is_string($meta[$field] ?? null) || $meta[$field] === '') {
+                return null;
+            }
         }
 
         return ['key' => $idValue, 'meta' => $meta, 'path' => $path];
     }
 
-    public function reportFile(array $involvement): ?string
+    /**
+     * Fixture that serves a submitted IC: its own folder when one exists (even a broken one, which then yields
+     * null), otherwise the default IC named by the marker file.
+     */
+    public function resolve(string $submittedId): ?array
     {
-        $file = $involvement['path'].'/report.pdf';
+        if (! self::isSafeId($submittedId)) {
+            return null;
+        }
 
-        return is_file($file) ? $file : null;
+        $own = $this->basePath.'/'.$submittedId;
+
+        if (file_exists($own) || is_link($own)) {
+            return $this->find($submittedId);
+        }
+
+        $defaultId = $this->defaultId();
+
+        return $defaultId === null ? null : $this->find($defaultId);
     }
 
-    public function reportUrl(array $involvement): string
+    /**
+     * True when the fixture is the default IC's, whether reached by fallback or bought directly.
+     */
+    public function isDefault(array $involvement): bool
     {
-        return route('ssm-gateway.involvement-report', ['idValue' => $involvement['key']]);
+        return $involvement['key'] === $this->defaultId();
+    }
+
+    /**
+     * The shared PDF served for any involvement product the default IC has no exact sample for.
+     */
+    public function catchAllReportFile(): ?string
+    {
+        $file = $this->basePath.'/'.self::CATCH_ALL_REPORT;
+
+        return is_file($file) && ! is_link($file) ? $file : null;
+    }
+
+    public function catchAllReportUrl(): string
+    {
+        return route('ssm-gateway.involvement-default-report');
+    }
+
+    private function defaultId(): ?string
+    {
+        $marker = $this->basePath.'/'.self::DEFAULT_MARKER;
+        $default = is_file($marker) ? json_decode(file_get_contents($marker), true) : null;
+
+        return is_array($default) && is_string($default['idValue'] ?? null) ? $default['idValue'] : null;
+    }
+
+    public function reportFile(array $involvement, string $identity): ?string
+    {
+        if (! InvolvementVariant::isValid($identity)) {
+            return null;
+        }
+
+        $file = $involvement['path'].'/'.$identity.'.pdf';
+
+        return is_file($file) && ! is_link($file) ? $file : null;
+    }
+
+    public function reportUrl(array $involvement, string $identity): string
+    {
+        return route('ssm-gateway.involvement-report', ['idValue' => $involvement['key'], 'identity' => $identity]);
+    }
+
+    public static function isSafeId(string $id): bool
+    {
+        return preg_match('/\A[A-Za-z0-9_-]+\z/', $id) === 1;
     }
 
     public static function selectionRefNo(string $idValue): string

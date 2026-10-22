@@ -41,7 +41,7 @@ class SsmGatewayOrderTest extends TestCase
         file_put_contents($inv.'/900101015555/meta.json', json_encode([
             'idType' => 'MK', 'idValue' => '900101015555', 'name' => 'AHMAD BIN ALI',
         ]));
-        file_put_contents($inv.'/900101015555/report.pdf', '%PDF-1.4 fake');
+        file_put_contents($inv.'/900101015555/director-plain-en.pdf', '%PDF-1.4 fake');
         config(['ssm_gateway_mock.involvements_path' => $inv]);
 
         $this->companyId = (int) sprintf('%u', crc32('infomina-berhad'));

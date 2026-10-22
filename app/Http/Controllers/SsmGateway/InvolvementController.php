@@ -19,7 +19,8 @@ class InvolvementController extends Controller
             'idValue' => ['required', 'string'],
         ]);
 
-        $involvement = $this->involvements->find(trim($validated['idValue']));
+        $idValue = trim($validated['idValue']);
+        $involvement = $this->involvements->resolve($idValue);
 
         if ($involvement === null) {
             return response()->json(['message' => 'No involvement record found for the given ID'], 404);
@@ -27,14 +28,25 @@ class InvolvementController extends Controller
 
         return response()->json([
             'message' => 'Submission received',
-            'data' => ['selectionRefNo' => SsmGatewayInvolvementRepository::selectionRefNo($involvement['key'])],
+            'data' => ['selectionRefNo' => SsmGatewayInvolvementRepository::selectionRefNo($idValue)],
         ]);
     }
 
-    public function report(string $idValue): BinaryFileResponse|JsonResponse
+    public function report(string $idValue, string $identity): BinaryFileResponse|JsonResponse
     {
         $involvement = $this->involvements->find($idValue);
-        $file = $involvement ? $this->involvements->reportFile($involvement) : null;
+        $file = $involvement ? $this->involvements->reportFile($involvement, $identity) : null;
+
+        if ($file === null) {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        return response()->file($file, ['Content-Type' => 'application/pdf']);
+    }
+
+    public function defaultReport(): BinaryFileResponse|JsonResponse
+    {
+        $file = $this->involvements->catchAllReportFile();
 
         if ($file === null) {
             return response()->json(['error' => 'not_found'], 404);
