@@ -3,9 +3,15 @@
 use App\Http\Controllers\AsiaverifyMockController;
 use App\Http\Controllers\CaseUploadController;
 use App\Http\Controllers\DnbMockController;
+use App\Http\Controllers\InvolvementUploadController;
 use App\Http\Controllers\LlmMockController;
 use App\Http\Controllers\PaymentMockController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SsmGateway\AuthController as SsmGatewayAuthController;
+use App\Http\Controllers\SsmGateway\CompanyController as SsmGatewayCompanyController;
+use App\Http\Controllers\SsmGateway\InvolvementController as SsmGatewayInvolvementController;
+use App\Http\Controllers\SsmGateway\OrderController as SsmGatewayOrderController;
+use App\Http\Controllers\SsmGateway\SupportController as SsmGatewaySupportController;
 use App\Http\Controllers\SsmMockController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +36,7 @@ Route::middleware('verify.gateway')->group(function () {
 
 Route::middleware('verify.gateway:admin_sync')->group(function () {
     Route::post('/admin-api/cases', [CaseUploadController::class, 'store']);
+    Route::post('/admin-api/involvements', [InvolvementUploadController::class, 'store']);
 });
 
 // Senangpay-protocol payment mock. Deliberately unauthenticated: the browser
@@ -41,6 +48,36 @@ Route::post('/payment/{merchantId}/complete', [PaymentMockController::class, 'co
 Route::get('/reports/{caseKey}.pdf', [ReportController::class, 'show'])
     ->where('caseKey', '[A-Za-z0-9_-]+')
     ->name('ssm-mock.report');
+
+// SSM Search (ssmsearch.com) portal mock, consumed by infominaAI-BE's ssm-gateway module.
+Route::prefix('ssm-gateway')->group(function () {
+    Route::get('/login', [SsmGatewayAuthController::class, 'loginPage']);
+    Route::post('/user/login', [SsmGatewayAuthController::class, 'login']);
+
+    Route::get('/involvement-reports/default.pdf', [SsmGatewayInvolvementController::class, 'defaultReport'])
+        ->name('ssm-gateway.involvement-default-report');
+
+    Route::get('/involvement-reports/{idValue}/{identity}.pdf', [SsmGatewayInvolvementController::class, 'report'])
+        ->where('idValue', '[A-Za-z0-9_-]+')
+        ->where('identity', '(director|shareholder|secretary)-(ctc|plain)-(en|my)')
+        ->name('ssm-gateway.involvement-report');
+
+    Route::middleware('verify.ssm-gateway.token')->group(function () {
+        Route::post('/point/get-balance', [SsmGatewayAuthController::class, 'balance']);
+        Route::post('/company/search', [SsmGatewayCompanyController::class, 'search']);
+        Route::post('/company/get-info', [SsmGatewayCompanyController::class, 'info']);
+        Route::post('/product/list', [SsmGatewayCompanyController::class, 'productList']);
+        Route::post('/product/list-by-company', [SsmGatewayCompanyController::class, 'productListByCompany']);
+        Route::post('/personal-involvement/submission', [SsmGatewayInvolvementController::class, 'submission']);
+        Route::post('/cart/add-item', [SsmGatewayOrderController::class, 'addItem']);
+        Route::post('/order/init-checkout-page', [SsmGatewayOrderController::class, 'initCheckoutPage']);
+        Route::post('/payment/ssm-product', [SsmGatewayOrderController::class, 'payment']);
+        Route::post('/order/init-thank-you-page', [SsmGatewayOrderController::class, 'initThankYouPage']);
+        Route::post('/order/init-order-page', [SsmGatewayOrderController::class, 'initOrderPage']);
+        Route::post('/file/upload', [SsmGatewaySupportController::class, 'fileUpload']);
+        Route::post('/helpdesk/submit', [SsmGatewaySupportController::class, 'helpdeskSubmit']);
+    });
+});
 
 Route::post('/{modelOp}/invoke', [LlmMockController::class, 'invoke'])
     ->where('modelOp', '[A-Za-z0-9_]+');

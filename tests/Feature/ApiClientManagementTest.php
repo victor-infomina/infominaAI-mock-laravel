@@ -130,4 +130,15 @@ class ApiClientManagementTest extends TestCase
         $apiClient = ApiClient::where('label', 'be-app-dnb')->firstOrFail();
         $this->assertSame('dnb', $apiClient->purpose);
     }
+
+    public function test_can_generate_ssm_gateway_purpose_client(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post('/tokens', ['label' => 'be-dev-ssm-gateway', 'purpose' => 'ssm_gateway', 'expires_in_days' => ''])
+            ->assertRedirect('/tokens');
+
+        $this->assertDatabaseHas('api_clients', ['label' => 'be-dev-ssm-gateway', 'purpose' => 'ssm_gateway']);
+    }
 }

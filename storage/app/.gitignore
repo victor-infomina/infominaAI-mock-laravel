@@ -7,4 +7,6 @@
 !asiaverify-fixtures/**
 !dnb-fixtures/
 !dnb-fixtures/**
+!ssm-gateway-fixtures/
+!ssm-gateway-fixtures/**
 !.gitignore

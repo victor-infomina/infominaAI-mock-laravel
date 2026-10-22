@@ -7,6 +7,7 @@ use App\Services\AwsS3ObjectFetcher;
 use App\Services\DnbCaseRepository;
 use App\Services\S3ObjectFetcher;
 use App\Services\SsmCaseRepository;
+use App\Services\SsmGatewayInvolvementRepository;
 use Aws\S3\S3Client;
 use Illuminate\Support\ServiceProvider;
 
@@ -27,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->bind(DnbCaseRepository::class, function () {
             return new DnbCaseRepository(config('dnb_mock.cases_path'));
+        });
+
+        $this->app->bind(SsmGatewayInvolvementRepository::class, function () {
+            return new SsmGatewayInvolvementRepository(config('ssm_gateway_mock.involvements_path'));
         });
 
         $this->app->bind(S3ObjectFetcher::class, function () {
