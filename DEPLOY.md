@@ -63,6 +63,11 @@ If a release adds migrations, run them by uploading the zip's fresh sqlite inste
 re-generating credentials — or diff the two schemas first; there is no shell to run
 `php artisan migrate` on the host.
 
+The webhook inbox (`README.md` → "Webhook inbox") stores everything under
+`storage/app/webhook-inbox/`, which the extract leaves untouched like the case folders —
+no schema change, nothing to migrate, and the inbox tokens survive the upgrade. Delete that
+folder if you want a clean inbox after an upgrade.
+
 ## 2. Upload and extract
 
 1. In cPanel File Manager, create a folder **outside** `public_html`, e.g. `~/laravel-ssm-mock/`.

@@ -344,6 +344,51 @@ Imported IC folders and the importer's temporary entries are git-ignored by
 `involvements/.gitignore`, which tracks only the shipped `111111111111/`, `default.json` and `default.pdf`. A local
 import still changes the tracked `default.json`, so revert it before committing. Do not commit real CSV rows or production PDFs.
 
+## Webhook inbox (partner-side receiver for `infominaAI-BE` client-API deliveries)
+
+The BE delivers two things to a client's `api_configuration` row: a browser **callback**
+(FE redirects to `callback_url?referenceId&hash&status&…` after a partner/account purchase)
+and server-to-server **webhooks** (`POST` JSON to `webhook_url`: `bulk-purchase-completed`
+and `extraction-completed`). This app can be the receiver for both, so dev/staging deliveries
+can be observed without a tunnel.
+
+1. Log in, open **Webhook Inbox**, create an inbox (slug e.g. `dev-myhasil`). Enter the
+   client's **client key** as identifier and its **secret key** so every hash is verified
+   (`hex(HMAC-SHA256(secret, identifier + secret + referenceId))`, same as the BE). The inbox
+   page shows two URLs containing a random token — that token is the only thing protecting
+   the inbox from strangers; **Regenerate token** rotates it.
+2. Point the BE at it (DB owner, per env, for the purchase and bulk-purchase rows):
+
+       update api_configuration
+          set webhook_url  = 'https://<your-domain>/webhook-inbox/dev-myhasil/<token>',
+              callback_url = 'https://<your-domain>/webhook-inbox/dev-myhasil/<token>/callback'
+        where client_id = <client> and api_id in (<purchase api>, <bulk-purchase api>);
+
+3. Trigger a purchase. The inbox page lists each delivery with event type, referenceId,
+   sequence/final/retry, hash status and the HTTP status this app answered with. Click a row
+   for the full stored JSON.
+
+**Response mode** per inbox drives the BE's retry path: `ok` → 200; `error` → 500 (BE makes
+3 attempts, then retries after 5/15/60/360 min, gives up after 24 h — re-queue with the BE's
+`POST /admin/api-webhook-event/:id/resend`); `timeout` → sleeps
+`SSM_MOCK_WEBHOOK_INBOX_TIMEOUT_SECONDS` (default 20, past the BE's 15 s).
+
+**Reading from a script:** `GET /admin-api/webhook-inbox/{slug}/events?since=<ISO-8601>&reference_id=<id>`
+with the same `x-Gateway-APIKey` / `x-Gateway-APISecret` headers and `admin_sync`-purpose
+credential the case-sync tool uses. Returns `{ "inbox": …, "events": [ … newest first … ] }`.
+
+Storage is `storage/app/webhook-inbox/<slug>/` (no database table, so cPanel upgrades need
+no migration). Limits: bodies over 256 KB are refused (413), each inbox keeps at most 500
+events, events older than 7 days are deleted on the next delivery, and both public routes
+are throttled to 120 requests/min per IP. Received content is always re-serialised into a
+JSON file we name, outside the web root — nothing a sender posts is ever stored under its
+own name or executed. The payloads carry purchased company data — do not point production
+at this.
+
+Public routes: `POST /webhook-inbox/{slug}/{token}` and `GET /webhook-inbox/{slug}/{token}/callback`
+(wrong token or unknown slug → 404, nothing stored). Admin routes live under
+`/admin/webhook-inbox` and work on the deployed instance (login only, not `APP_ENV=local`).
+
 ## Environment variables
 
 - `APP_URL` — must be this app's real public URL; it's used to build the `documentUrl` field `infominaAI-BE` fetches directly.
@@ -360,6 +405,8 @@ import still changes the tracked `default.json`, so revert it before committing.
 - `SSM_GATEWAY_MOCK_REPORT_DELAY_SECONDS` — seconds after `cart/add-item` before `order/init-order-page` reports a `download_url` (defaults to `0`, i.e. immediately); set it to exercise the BE's AWAITING_PDF path.
 - `SSM_GATEWAY_MOCK_INVOLVEMENTS_PATH` — optional override for the involvement fixture directory (defaults to `storage/app/ssm-gateway-fixtures/involvements`).
 - `SSM_GATEWAY_MOCK_RECAPTCHA_SITEKEY` — sitekey rendered on `/ssm-gateway/login` (defaults to Google's always-pass reCAPTCHA v2 test key).
+- `SSM_MOCK_WEBHOOK_INBOX_PATH` — optional override for the webhook-inbox directory (defaults to `storage/app/webhook-inbox`).
+- `SSM_MOCK_WEBHOOK_INBOX_TIMEOUT_SECONDS` — how long an inbox in `timeout` response mode sleeps before answering 200 (defaults to `20`, past the BE's 15 s webhook timeout).
 
 ## Admin UI and API credentials
 
@@ -377,6 +424,7 @@ anymore.
   key/secret pairs that `infominaAI-BE` authenticates gateway requests with. A
   generated secret is shown only once, at creation time — copy it immediately and
   set it as `infominaAI-BE`'s `SSM_API_KEY` / `SSM_API_SECRET`.
+- **Webhook inbox reads:** The same `admin_sync` credential also authorises `GET /admin-api/webhook-inbox/{slug}/events` (see "Webhook inbox").
 
 ## Deployment
 

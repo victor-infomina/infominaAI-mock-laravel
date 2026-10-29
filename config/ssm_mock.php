@@ -2,6 +2,8 @@
 
 return [
     'cases_path' => env('SSM_MOCK_CASES_PATH', storage_path('app/ssm-fixtures/cases')),
+    'webhook_inbox_path' => env('SSM_MOCK_WEBHOOK_INBOX_PATH', storage_path('app/webhook-inbox')),
+    'webhook_inbox_timeout_seconds' => (int) env('SSM_MOCK_WEBHOOK_INBOX_TIMEOUT_SECONDS', 20),
     'local_admin_enabled' => env('APP_ENV') === 'local',
     's3_bucket' => env('SSM_S3_BUCKET'),
     's3_region' => env('SSM_S3_REGION'),

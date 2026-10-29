@@ -30,6 +30,7 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="SSM_GATEWAY_MOCK_REPORT_DELAY_SECONDS" value="0"/>
         <env name="SSM_GATEWAY_MOCK_TOKEN_TTL_SECONDS" value="86400"/>
+        <env name="SSM_MOCK_WEBHOOK_INBOX_TIMEOUT_SECONDS" value="0"/>
         <env name="SSM_S3_REGION" value="us-east-1"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>

@@ -17,6 +17,7 @@
                 <a href="/tokens" class="eyebrow text-ink hover:text-wire">Infomina — SSM Mock Gateway</a>
                 <nav class="flex items-center gap-6">
                     <a href="{{ route('tokens.index') }}" class="eyebrow {{ request()->routeIs('tokens.*') ? 'text-wire' : 'text-ink/50 hover:text-ink' }}">Tokens</a>
+                    <a href="{{ route('webhook-inbox.index') }}" class="eyebrow {{ request()->is('admin/webhook-inbox*') ? 'text-wire' : 'text-ink/50 hover:text-ink' }}">Webhook Inbox</a>
                     @if (app()->environment('local'))
                         <a href="/admin/sync-cases" class="eyebrow {{ request()->is('admin/sync-cases*') ? 'text-wire' : 'text-ink/50 hover:text-ink' }}">Sync Cases</a>
                     @endif
