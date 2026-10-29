@@ -13,6 +13,7 @@ use App\Http\Controllers\SsmGateway\InvolvementController as SsmGatewayInvolveme
 use App\Http\Controllers\SsmGateway\OrderController as SsmGatewayOrderController;
 use App\Http\Controllers\SsmGateway\SupportController as SsmGatewaySupportController;
 use App\Http\Controllers\SsmMockController;
+use App\Http\Controllers\WebhookInbox\ReceiveController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('verify.dnb')->post('/dnb', [DnbMockController::class, 'handle']);
@@ -81,3 +82,9 @@ Route::prefix('ssm-gateway')->group(function () {
 
 Route::post('/{modelOp}/invoke', [LlmMockController::class, 'invoke'])
     ->where('modelOp', '[A-Za-z0-9_]+');
+
+// Partner-side webhook inbox for infominaAI-BE client-API deliveries (see
+// README "Webhook inbox"). The token in the path is the credential.
+Route::post('/webhook-inbox/{slug}/{token}', [ReceiveController::class, 'webhook'])
+    ->middleware('throttle:120,1')
+    ->where(['slug' => '[a-z0-9][a-z0-9-]{0,63}', 'token' => '[a-f0-9]{32}']);
