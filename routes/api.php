@@ -13,6 +13,7 @@ use App\Http\Controllers\SsmGateway\InvolvementController as SsmGatewayInvolveme
 use App\Http\Controllers\SsmGateway\OrderController as SsmGatewayOrderController;
 use App\Http\Controllers\SsmGateway\SupportController as SsmGatewaySupportController;
 use App\Http\Controllers\SsmMockController;
+use App\Http\Controllers\WebhookInbox\AdminApiController;
 use App\Http\Controllers\WebhookInbox\ReceiveController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,6 +39,8 @@ Route::middleware('verify.gateway')->group(function () {
 Route::middleware('verify.gateway:admin_sync')->group(function () {
     Route::post('/admin-api/cases', [CaseUploadController::class, 'store']);
     Route::post('/admin-api/involvements', [InvolvementUploadController::class, 'store']);
+    Route::get('/admin-api/webhook-inbox/{slug}/events', [AdminApiController::class, 'events'])
+        ->where('slug', '[a-z0-9][a-z0-9-]{0,63}');
 });
 
 // Senangpay-protocol payment mock. Deliberately unauthenticated: the browser
