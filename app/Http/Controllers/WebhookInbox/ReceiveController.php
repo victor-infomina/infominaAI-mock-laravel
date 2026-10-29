@@ -7,6 +7,7 @@ use App\Services\WebhookInbox\WebhookHashVerifier;
 use App\Services\WebhookInbox\WebhookInboxRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
 /**
  * Partner-side receiver for infominaAI-BE client-API deliveries. Public on
@@ -56,6 +57,34 @@ class ReceiveController extends Controller
         }
 
         return response()->json(['received' => $status === 200], $status);
+    }
+
+    public function callback(Request $request, string $slug, string $token): View
+    {
+        $inbox = $this->repository->findByToken($slug, $token);
+        abort_if($inbox === null, 404);
+
+        $query = $request->query();
+        $referenceId = $this->stringOrNull($query['referenceId'] ?? null);
+        $hash = $this->stringOrNull($query['hash'] ?? null);
+
+        $event = $this->repository->storeEvent($slug, [
+            'kind' => 'callback',
+            'event_type' => 'callback',
+            'reference_id' => $referenceId,
+            'sequence' => null,
+            'final' => null,
+            'retry' => null,
+            'hash' => $hash,
+            'hash_status' => WebhookHashVerifier::status($inbox['identifier'], $inbox['secret'], $referenceId, $hash),
+            'response_mode' => null,
+            'response_status' => 200,
+            'headers' => $this->headerSubset($request),
+            'body' => null,
+            'query' => $query,
+        ]);
+
+        return view('webhook-inbox.callback', ['slug' => $slug, 'event' => $event]);
     }
 
     private function decodeBody(string $raw): array

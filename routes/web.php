@@ -3,11 +3,18 @@
 use App\Http\Controllers\ApiClientController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\SyncCasesController;
+use App\Http\Controllers\WebhookInbox\ReceiveController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Partner-side callback landing: the FE redirects the browser here after a
+// partner/account purchase. Public by design (see README "Webhook inbox").
+Route::get('/webhook-inbox/{slug}/{token}/callback', [ReceiveController::class, 'callback'])
+    ->middleware('throttle:120,1')
+    ->where(['slug' => '[a-z0-9][a-z0-9-]{0,63}', 'token' => '[a-f0-9]{32}']);
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
