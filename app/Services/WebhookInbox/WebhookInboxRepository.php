@@ -150,7 +150,13 @@ class WebhookInboxRepository
 
         // Microsecond prefix keeps "newest first" stable for deliveries in the same second.
         $file = $this->eventsPath($slug).'/'.Carbon::now('UTC')->format('YmdHisu').'-'.$event['id'].'.json';
-        File::put($file, json_encode($event, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        // Senders control the bytes; invalid UTF-8 is substituted rather than
+        // letting json_encode fail and leave an empty, unreadable event file.
+        $json = json_encode($event, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        if ($json === false) {
+            throw new RuntimeException('Could not encode event: '.json_last_error_msg());
+        }
+        File::put($file, $json);
 
         return $event;
     }

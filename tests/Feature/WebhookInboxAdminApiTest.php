@@ -94,4 +94,17 @@ class WebhookInboxAdminApiTest extends TestCase
             ->assertOk()->assertJsonCount(1, 'events')
             ->assertJsonPath('events.0.received_at', '2026-10-29T12:00:00+00:00');
     }
+
+    public function test_unparseable_since_is_rejected_instead_of_ignored(): void
+    {
+        $this->repo->storeEvent('dev', ['kind' => 'webhook', 'reference_id' => 'A']);
+
+        $this->withHeaders($this->authHeaders())
+            ->getJson('/admin-api/webhook-inbox/dev/events?since=garbage')
+            ->assertStatus(422);
+
+        $this->withHeaders($this->authHeaders())
+            ->getJson('/admin-api/webhook-inbox/dev/events?since=2099-01-01T00:00:00 08:00')
+            ->assertStatus(422);
+    }
 }

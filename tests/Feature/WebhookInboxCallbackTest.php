@@ -92,4 +92,13 @@ class WebhookInboxCallbackTest extends TestCase
 
         $this->assertSame('unchecked', $this->repo->events('dev-myhasil')[0]['hash_status']);
     }
+
+    public function test_callback_with_invalid_utf8_query_is_still_recorded(): void
+    {
+        $this->get($this->url().'?referenceId=ORDER-9&remark=%FF')->assertOk();
+
+        $events = $this->repo->events('dev-myhasil');
+        $this->assertCount(1, $events);
+        $this->assertSame('ORDER-9', $events[0]['reference_id']);
+    }
 }

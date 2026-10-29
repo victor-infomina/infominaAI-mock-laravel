@@ -160,4 +160,30 @@ class WebhookInboxReceiveTest extends TestCase
 
         $this->assertSame('timeout', $this->repo->events('dev-myhasil')[0]['response_mode']);
     }
+
+    public function test_invalid_utf8_body_is_still_recorded(): void
+    {
+        $this->createInbox();
+
+        $this->call('POST', $this->url(), [], [], [], ['CONTENT_TYPE' => 'text/plain'], "abc\xff\xfe")
+            ->assertOk();
+
+        $events = $this->repo->events('dev-myhasil');
+        $this->assertCount(1, $events);
+        $this->assertStringStartsWith('abc', $events[0]['body']['raw']);
+    }
+
+    public function test_non_scalar_sequence_and_non_bool_flags_are_not_stored_as_is(): void
+    {
+        $this->createInbox();
+
+        $this->postJson($this->url(), ['referenceId' => 'R', 'sequence' => ['a' => 1], 'final' => 'no', 'retry' => 1])
+            ->assertOk();
+
+        $event = $this->repo->events('dev-myhasil')[0];
+        $this->assertNull($event['sequence']);
+        $this->assertNull($event['final']);
+        $this->assertNull($event['retry']);
+        $this->assertSame(['a' => 1], $event['body']['sequence']);
+    }
 }

@@ -36,9 +36,9 @@ class ReceiveController extends Controller
             'kind' => 'webhook',
             'event_type' => $this->stringOrNull($body['event'] ?? null) ?? 'bulk-purchase-completed',
             'reference_id' => $this->stringOrNull($body['referenceId'] ?? null),
-            'sequence' => $body['sequence'] ?? null,
-            'final' => $body['final'] ?? null,
-            'retry' => $body['retry'] ?? null,
+            'sequence' => is_scalar($body['sequence'] ?? null) ? $body['sequence'] : null,
+            'final' => $this->boolOrNull($body['final'] ?? null),
+            'retry' => $this->boolOrNull($body['retry'] ?? null),
             'hash' => $this->stringOrNull($body['hash'] ?? null),
             'hash_status' => WebhookHashVerifier::status(
                 $inbox['identifier'],
@@ -102,6 +102,11 @@ class ReceiveController extends Controller
             'user-agent' => $request->header('User-Agent'),
             'content-length' => $request->header('Content-Length'),
         ];
+    }
+
+    private function boolOrNull(mixed $value): ?bool
+    {
+        return is_bool($value) ? $value : null;
     }
 
     private function stringOrNull(mixed $value): ?string
