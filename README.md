@@ -365,8 +365,15 @@ can be observed without a tunnel.
         where client_id = <client> and api_id in (<purchase api>, <bulk-purchase api>);
 
 3. Trigger a purchase. The inbox page lists each delivery with event type, referenceId,
-   sequence/final/retry, hash status and the HTTP status this app answered with. Click a row
-   for the full stored JSON.
+   sequence/final/retry, hash status, signature status and the HTTP status this app answered
+   with. Click a row for the full stored JSON (headers include `x-signature`/`x-event-id`,
+   and `raw_body` is kept verbatim).
+
+**Signature status** (AE-479) checks the BE's payload signatures with the inbox secret:
+webhooks carry `X-Signature: t=<unix>,v1=hex(HMAC-SHA256(secret, t + "." + rawBody))` and no
+body `hash` (so their hash status is `unchecked`); opted-in callbacks carry `ts` + `signature`
+over the sorted query parameters. `valid` / `invalid` / `stale` (signed more than 5 min before
+arrival) / `unchecked` (no secret, or an unsigned delivery such as a legacy callback).
 
 **Response mode** per inbox drives the BE's retry path: `ok` → 200; `error` → 500 (BE makes
 3 attempts, then retries after 5/15/60/360 min, gives up after 24 h — re-queue with the BE's

@@ -62,7 +62,7 @@
         </div>
         <table class="ledger-table">
             <thead>
-                <tr><th>Received (UTC)</th><th>Kind</th><th>Event</th><th>Reference</th><th>Seq</th><th>Final</th><th>Retry</th><th>Hash</th><th>Sent</th></tr>
+                <tr><th>Received (UTC)</th><th>Kind</th><th>Event</th><th>Reference</th><th>Seq</th><th>Final</th><th>Retry</th><th>Hash</th><th>Signature</th><th>Sent</th></tr>
             </thead>
             <tbody>
                 @forelse ($events as $event)
@@ -75,10 +75,11 @@
                         <td>{{ is_null($event['final'] ?? null) ? '—' : ($event['final'] ? 'yes' : 'no') }}</td>
                         <td>{{ is_null($event['retry'] ?? null) ? '—' : ($event['retry'] ? 'yes' : 'no') }}</td>
                         <td><span class="badge {{ ($event['hash_status'] ?? '') === 'valid' ? 'badge-active' : (($event['hash_status'] ?? '') === 'invalid' ? 'badge-revoked' : 'badge-expired') }}">{{ $event['hash_status'] ?? 'unchecked' }}</span></td>
+                        <td><span class="badge {{ ($event['signature_status'] ?? '') === 'valid' ? 'badge-active' : (in_array($event['signature_status'] ?? '', ['invalid', 'stale']) ? 'badge-revoked' : 'badge-expired') }}">{{ $event['signature_status'] ?? 'unchecked' }}</span></td>
                         <td class="font-mono text-xs">{{ $event['response_status'] ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="text-ink/45">Nothing received yet.</td></tr>
+                    <tr><td colspan="10" class="text-ink/45">Nothing received yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

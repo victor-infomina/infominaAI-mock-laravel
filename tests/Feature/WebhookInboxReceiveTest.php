@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\WebhookInbox\WebhookHashVerifier;
 use App\Services\WebhookInbox\WebhookInboxRepository;
+use App\Services\WebhookInbox\WebhookSignatureVerifier;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -185,5 +186,68 @@ class WebhookInboxReceiveTest extends TestCase
         $this->assertNull($event['final']);
         $this->assertNull($event['retry']);
         $this->assertSame(['a' => 1], $event['body']['sequence']);
+    }
+
+    private function postSigned(string $raw, ?string $signature, ?string $eventId = 'evt-1')
+    {
+        $server = ['CONTENT_TYPE' => 'application/json'];
+        if ($signature !== null) {
+            $server['HTTP_X_SIGNATURE'] = $signature;
+        }
+        if ($eventId !== null) {
+            $server['HTTP_X_EVENT_ID'] = $eventId;
+        }
+
+        return $this->call('POST', $this->url(), [], [], [], $server, $raw);
+    }
+
+    public function test_signed_webhook_without_hash_is_stored_with_a_valid_signature(): void
+    {
+        $this->createInbox();
+        $raw = '{"referenceId":"REF-1","template":"ssm-idaman-document","data":[]}';
+
+        $this->postSigned($raw, WebhookSignatureVerifier::signWebhook('client-secret', $raw, time()))
+            ->assertOk()->assertJson(['received' => true]);
+
+        $event = $this->repo->events('dev-myhasil')[0];
+        $this->assertSame('valid', $event['signature_status']);
+        $this->assertSame('unchecked', $event['hash_status']);
+        $this->assertNull($event['hash']);
+        $this->assertSame('evt-1', $event['event_id']);
+        $this->assertSame('evt-1', $event['headers']['x-event-id']);
+        $this->assertStringStartsWith('t=', $event['headers']['x-signature']);
+        $this->assertSame($raw, $event['raw_body']);
+    }
+
+    public function test_tampered_signed_webhook_is_recorded_as_invalid(): void
+    {
+        $this->createInbox();
+        $raw = '{"referenceId":"REF-1","data":[{"Status":"success"}]}';
+        $signature = WebhookSignatureVerifier::signWebhook('client-secret', $raw, time());
+
+        $this->postSigned(str_replace('success', 'fail', $raw), $signature)->assertOk();
+
+        $this->assertSame('invalid', $this->repo->events('dev-myhasil')[0]['signature_status']);
+    }
+
+    public function test_old_signed_webhook_is_recorded_as_stale(): void
+    {
+        $this->createInbox();
+        $raw = '{"referenceId":"REF-1"}';
+
+        $this->postSigned($raw, WebhookSignatureVerifier::signWebhook('client-secret', $raw, time() - 600))->assertOk();
+
+        $this->assertSame('stale', $this->repo->events('dev-myhasil')[0]['signature_status']);
+    }
+
+    public function test_unsigned_webhook_is_unchecked(): void
+    {
+        $this->createInbox();
+
+        $this->postSigned('{"referenceId":"REF-1"}', null, null)->assertOk();
+
+        $event = $this->repo->events('dev-myhasil')[0];
+        $this->assertSame('unchecked', $event['signature_status']);
+        $this->assertNull($event['event_id']);
     }
 }

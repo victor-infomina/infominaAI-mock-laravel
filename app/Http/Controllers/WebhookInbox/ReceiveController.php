@@ -4,6 +4,7 @@ namespace App\Http\Controllers\WebhookInbox;
 
 use App\Http\Controllers\Controller;
 use App\Services\WebhookInbox\WebhookHashVerifier;
+use App\Services\WebhookInbox\WebhookSignatureVerifier;
 use App\Services\WebhookInbox\WebhookInboxRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -46,10 +47,18 @@ class ReceiveController extends Controller
                 $this->stringOrNull($body['referenceId'] ?? null),
                 $this->stringOrNull($body['hash'] ?? null),
             ),
+            'signature_status' => WebhookSignatureVerifier::webhookStatus(
+                $inbox['secret'],
+                $request->header('X-Signature'),
+                $raw,
+            ),
+            'event_id' => $request->header('X-Event-Id'),
             'response_mode' => $inbox['response_mode'],
             'response_status' => $status,
             'headers' => $this->headerSubset($request),
             'body' => $body,
+            // Kept verbatim: the signature covers these exact bytes, not the decoded body.
+            'raw_body' => $raw,
         ]);
 
         if ($inbox['response_mode'] === 'timeout') {
@@ -77,6 +86,7 @@ class ReceiveController extends Controller
             'retry' => null,
             'hash' => $hash,
             'hash_status' => WebhookHashVerifier::status($inbox['identifier'], $inbox['secret'], $referenceId, $hash),
+            'signature_status' => WebhookSignatureVerifier::callbackStatus($inbox['secret'], $this->rawQuery($request)),
             'response_mode' => null,
             'response_status' => 200,
             'headers' => $this->headerSubset($request),
@@ -85,6 +95,25 @@ class ReceiveController extends Controller
         ]);
 
         return view('webhook-inbox.callback', ['slug' => $slug, 'event' => $event]);
+    }
+
+    /**
+     * Query parameters exactly as the browser sent them. $request->query() has
+     * already been through TrimStrings / ConvertEmptyStringsToNull (e.g. an
+     * empty `remark=` becomes null), which would break the signature.
+     *
+     * @return array<string, string>
+     */
+    private function rawQuery(Request $request): array
+    {
+        $params = [];
+        $query = (string) $request->server('QUERY_STRING', '');
+        foreach ($query === '' ? [] : explode('&', $query) as $pair) {
+            [$key, $value] = array_pad(explode('=', $pair, 2), 2, '');
+            $params[urldecode($key)] = urldecode($value);
+        }
+
+        return $params;
     }
 
     private function decodeBody(string $raw): array
@@ -101,6 +130,8 @@ class ReceiveController extends Controller
             'content-type' => $request->header('Content-Type'),
             'user-agent' => $request->header('User-Agent'),
             'content-length' => $request->header('Content-Length'),
+            'x-signature' => $request->header('X-Signature'),
+            'x-event-id' => $request->header('X-Event-Id'),
         ];
     }
 

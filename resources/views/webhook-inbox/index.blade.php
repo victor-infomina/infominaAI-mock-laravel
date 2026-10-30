@@ -5,7 +5,7 @@
             <h1 class="mt-1 font-mono text-2xl font-bold">Webhook Inbox</h1>
             <p class="mt-2 max-w-2xl text-sm text-ink/60">
                 Each inbox is a token-protected URL infominaAI-BE can deliver client-API webhooks and callbacks to.
-                Set the client key and secret to have every hash verified. Events are kept for 7 days, max 500 per inbox.
+                Set the client key and secret to have every hash and signature (X-Signature, callback ts + signature) verified. Events are kept for 7 days, max 500 per inbox.
             </p>
         </div>
 
