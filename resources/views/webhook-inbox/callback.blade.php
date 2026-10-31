@@ -9,6 +9,8 @@
                 <p class="mt-3 text-sm">
                     Hash:
                     <span class="badge {{ $event['hash_status'] === 'valid' ? 'badge-active' : ($event['hash_status'] === 'invalid' ? 'badge-revoked' : 'badge-expired') }}">{{ $event['hash_status'] }}</span>
+                    · Signature:
+                    <span class="badge {{ ($event['signature_status'] ?? '') === 'valid' ? 'badge-active' : (in_array($event['signature_status'] ?? '', ['invalid', 'stale']) ? 'badge-revoked' : 'badge-expired') }}">{{ $event['signature_status'] ?? 'unchecked' }}</span>
                 </p>
             </div>
         </div>

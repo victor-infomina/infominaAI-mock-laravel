@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\WebhookInbox\WebhookHashVerifier;
 use App\Services\WebhookInbox\WebhookInboxRepository;
+use App\Services\WebhookInbox\WebhookSignatureVerifier;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -100,5 +101,48 @@ class WebhookInboxCallbackTest extends TestCase
         $events = $this->repo->events('dev-myhasil');
         $this->assertCount(1, $events);
         $this->assertSame('ORDER-9', $events[0]['reference_id']);
+    }
+
+    /** @return array<string, string> */
+    private function signedParams(int $ts): array
+    {
+        $params = [
+            'referenceId' => 'ORDER-9',
+            'hash' => WebhookHashVerifier::compute('client-key', 'client-secret', 'ORDER-9'),
+            'status' => 'success',
+            'remark' => '',
+            'reportUrl' => '"https://s3.example.com/r.pdf?a=1&b=2"',
+            'ts' => (string) $ts,
+        ];
+        $params['signature'] = hash_hmac('sha256', WebhookSignatureVerifier::canonicalCallback($params), 'client-secret');
+
+        return $params;
+    }
+
+    public function test_signed_callback_is_recorded_and_rendered_with_a_valid_signature(): void
+    {
+        $response = $this->get($this->url().'?'.http_build_query($this->signedParams(time())));
+
+        $response->assertOk()->assertSee('Signature');
+        $event = $this->repo->events('dev-myhasil')[0];
+        $this->assertSame('valid', $event['signature_status']);
+        $this->assertSame('valid', $event['hash_status']);
+    }
+
+    public function test_signed_callback_with_an_edited_param_is_invalid(): void
+    {
+        $params = $this->signedParams(time());
+        $params['status'] = 'fail';
+
+        $this->get($this->url().'?'.http_build_query($params))->assertOk();
+
+        $this->assertSame('invalid', $this->repo->events('dev-myhasil')[0]['signature_status']);
+    }
+
+    public function test_legacy_callback_signature_is_unchecked(): void
+    {
+        $this->get($this->url().'?referenceId=ORDER-9&status=success')->assertOk();
+
+        $this->assertSame('unchecked', $this->repo->events('dev-myhasil')[0]['signature_status']);
     }
 }
