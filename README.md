@@ -9,6 +9,7 @@ during dev/staging instead of the real APIs.
 ### SSM (Malaysia)
 
 - `POST /get-search-entity`
+- `POST /get-status-entity` — CIDP entity status (AE-522); see [Entity status](#entity-status-get-status-entity)
 - `POST /v2/get-company-profile-document`
 - `POST /v2/get-bizprofile-document`
 - `POST /v2/get-llp-current-profile`
@@ -238,6 +239,26 @@ Create a folder under `storage/app/ssm-fixtures/cases/{caseKey}/` containing:
   - Cases without an `idaman/` folder simply have no Idaman documents — `get-image-list` returns a "not found" response for them.
 
 No rebuild or redeploy is needed — drop a new folder in and it's immediately queryable.
+
+## Entity status (`get-status-entity`)
+
+Mirrors CIDP's `POST /get-status-entity` (SSM Search CIDP API spec v1.6.1, AE-522). The response has prod's exact shape:
+
+```json
+{ "getStatusEntity": { "clientRefNo": "", "requestRefNo": "{caseKey}",
+  "statusEntity": { "data": { "companyName": "TOYYIBPAY SDN. BHD.", "companyNo": "201901024255",
+    "oldCompanyNo": "1333584-H", "entityType": "Company", "companyStatus": "EXISTING" } } } }
+```
+
+- **Request:** `regNo` (required) matches the case's `meta.regNo` or its old-format number from the profile (ROC `companyNo-checkDigit`, ROB `registrationNo-checkDigit`, LLP `entityNo`), case-insensitively. `entityType` (optional) is `company`, `business` or `limited_liability_partnerships`; any other value, a missing/blank `regNo`, or no match returns `404 {"error":"not_found"}`.
+- **Identity:** `companyName` and `companyNo` always come from `meta.json`, even when the saved profile belongs to another entity. Some cases do this on purpose so the test environment does not expose real data.
+- **`companyStatus`**, first rule that applies:
+  1. `meta.json` `"status"`, if non-blank, returned verbatim. Use it to force a value no fixture has (e.g. `REMOVED`, `TERMINATED`) or to match prod when a snapshot is stale.
+  2. Company: `rocCompanyInfo.statusOfCompany` through SSM's ROC table — E `EXISTING`, W `WINDING UP`, D `DISSOLVED`, R `REMOVED`, C `CEASED BUSINESS`, X `NULL & VOID PURSUANT COURT ORDER`, B `DISSOLVED (CONVERSION TO LLP)`, Y `STRUCK-OFF & WINDING-UP VIA COURT ORDER`, F `WINDING UP (UNDER CVA)`, G `EXISTING (UNDER CVA)`, J `EXISTING (UNDER JM)`, V `Existing (Under CVS)`.
+  3. Business: `robBusinessInfo.status` through the ROB table — A `ACTIVE`, L `EXPIRED`, T `TERMINATED`, B `DISSOLVED-CONVERSION TO LIMITED LIABILITY PARTNERSHIP(LLP)`. An `A` whose `endBusinessDate` is now or in the past is `EXPIRED`, as prod reports it.
+  4. LLP: `llpBasicProfile.entityStatusDesc`, as-is.
+  5. Otherwise (no profile, empty value, unknown code): `EXISTING`, or `ACTIVE` for a business.
+- `entityType` is `Company`, `Business` or `Limited Liability Partnerships`; `clientRefNo` echoes the `x-Client-Ref-No` header.
 
 ## Adding an AsiaVerify test case
 
