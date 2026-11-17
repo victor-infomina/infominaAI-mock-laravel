@@ -74,6 +74,57 @@ class SsmCaseRepository
         return null;
     }
 
+    /**
+     * CIDP get-status-entity lookup: `regNo` may be the case's meta.json number or the
+     * old-format number from its profile, and `entityType` (meta.json vocabulary, or null
+     * for any) only narrows the match. meta.json is the identity of record even when the
+     * saved profile belongs to another entity, so meta numbers are tried first and
+     * profiles are only opened when no meta number matches.
+     */
+    public function findForStatus(string $regNo, ?string $entityType): ?array
+    {
+        $regNo = trim($regNo);
+        $candidates = array_values(array_filter(
+            $this->all(),
+            fn (array $case) => $entityType === null || ($case['meta']['entityType'] ?? '') === $entityType,
+        ));
+
+        foreach ($candidates as $case) {
+            if (strcasecmp(trim((string) ($case['meta']['regNo'] ?? '')), $regNo) === 0) {
+                return $case;
+            }
+        }
+
+        foreach ($candidates as $case) {
+            $oldRegNo = SsmEntityStatus::oldRegNo((string) ($case['meta']['entityType'] ?? ''), $this->profile($case));
+
+            if ($oldRegNo !== '' && strcasecmp($oldRegNo, $regNo) === 0) {
+                return $case;
+            }
+        }
+
+        return null;
+    }
+
+    /** The case's decoded profile JSON for its entity type, or null if absent/unreadable. */
+    public function profile(array $case): ?array
+    {
+        $file = match ($case['meta']['entityType'] ?? null) {
+            'company' => 'company-profile.json',
+            'business' => 'business-profile.json',
+            'llp' => 'llp-profile.json',
+            default => null,
+        };
+
+        if ($file === null || ! is_file($case['path'].'/'.$file)) {
+            return null;
+        }
+
+        $profile = json_decode(file_get_contents($case['path'].'/'.$file), true);
+
+        return is_array($profile) ? $profile : null;
+    }
+
     public function searchByName(string $name, string $entityType): array
     {
         $needle = strtolower($name);

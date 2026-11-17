@@ -3,11 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Services\SsmCaseRepository;
+use App\Services\SsmEntityStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SsmMockController extends Controller
 {
+    /** get-status-entity's entityType vocabulary (CIDP spec 4.0) -> meta.json entityType. */
+    private const STATUS_ENTITY_TYPES = [
+        'company' => 'company',
+        'business' => 'business',
+        'limited_liability_partnerships' => 'llp',
+    ];
+
     public function __construct(private readonly SsmCaseRepository $cases)
     {
     }
@@ -43,6 +51,56 @@ class SsmMockController extends Controller
                     ], $matches),
                 ],
                 'errorMsg' => null,
+            ],
+        ]);
+    }
+
+    /**
+     * CIDP get-status-entity (AE-522). regNo is required (new or old format); entityType is
+     * optional and limited to the three values the CIDP spec accepts. Anything else, and
+     * unknown numbers, get the mock's usual not_found (prod's error shape is not captured).
+     */
+    public function statusEntity(Request $request): JsonResponse
+    {
+        $regNo = $request->input('regNo');
+        $entityType = $request->input('entityType');
+
+        if (! is_string($regNo) || trim($regNo) === '') {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        if ($entityType !== null && $entityType !== '') {
+            $entityType = is_string($entityType) ? self::STATUS_ENTITY_TYPES[$entityType] ?? null : null;
+
+            if ($entityType === null) {
+                return response()->json(['error' => 'not_found'], 404);
+            }
+        } else {
+            $entityType = null;
+        }
+
+        $case = $this->cases->findForStatus($regNo, $entityType);
+
+        if ($case === null) {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        $type = (string) ($case['meta']['entityType'] ?? '');
+        $profile = $this->cases->profile($case);
+
+        return response()->json([
+            'getStatusEntity' => [
+                'clientRefNo' => (string) $request->header('x-Client-Ref-No', ''),
+                'requestRefNo' => $case['key'],
+                'statusEntity' => [
+                    'data' => [
+                        'companyName' => (string) ($case['meta']['companyName'] ?? ''),
+                        'companyNo' => (string) ($case['meta']['regNo'] ?? ''),
+                        'oldCompanyNo' => SsmEntityStatus::oldRegNo($type, $profile),
+                        'entityType' => SsmEntityStatus::entityTypeLabel($type),
+                        'companyStatus' => SsmEntityStatus::status($case['meta'], $type, $profile, now()),
+                    ],
+                ],
             ],
         ]);
     }
