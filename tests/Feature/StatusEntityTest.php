@@ -177,6 +177,21 @@ class StatusEntityTest extends TestCase
             ->assertJsonPath('getStatusEntity.statusEntity.data.companyStatus', 'EXISTING');
     }
 
+    public function test_meta_old_reg_no_is_matched_and_returned_without_a_profile(): void
+    {
+        $this->makeCase('kinson', [
+            'regNo' => '194901000013',
+            'oldRegNo' => '1756-V',
+            'companyName' => 'KINSON COMPANY SDN BHD',
+            'entityType' => 'company',
+        ]);
+
+        $this->postStatus(['regNo' => '1756-V'])
+            ->assertOk()
+            ->assertJsonPath('getStatusEntity.statusEntity.data.companyNo', '194901000013')
+            ->assertJsonPath('getStatusEntity.statusEntity.data.oldCompanyNo', '1756-V');
+    }
+
     public function test_meta_status_override_wins(): void
     {
         $this->makeCase('removed-co', [

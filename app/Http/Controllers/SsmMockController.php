@@ -45,7 +45,7 @@ class SsmMockController extends Controller
                     'data' => array_map(fn (array $case) => [
                         'companyName' => $case['meta']['companyName'],
                         'companyNo' => $case['meta']['regNo'],
-                        'oldCompanyNo' => $case['meta']['regNo'],
+                        'oldCompanyNo' => $this->cases->oldRegNo($case) ?: $case['meta']['regNo'],
                         'entityType' => $case['meta']['entityType'],
                         'entityCode' => $case['meta']['entityType'],
                     ], $matches),
@@ -96,7 +96,7 @@ class SsmMockController extends Controller
                     'data' => [
                         'companyName' => (string) ($case['meta']['companyName'] ?? ''),
                         'companyNo' => (string) ($case['meta']['regNo'] ?? ''),
-                        'oldCompanyNo' => SsmEntityStatus::oldRegNo($type, $profile),
+                        'oldCompanyNo' => $this->cases->oldRegNo($case),
                         'entityType' => SsmEntityStatus::entityTypeLabel($type),
                         'companyStatus' => SsmEntityStatus::status($case['meta'], $type, $profile, now()),
                     ],
