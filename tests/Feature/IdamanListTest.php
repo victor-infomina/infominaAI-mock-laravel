@@ -51,6 +51,20 @@ class IdamanListTest extends TestCase
         $response->assertJsonPath('getImageView.documentInfos.documentInfos.0.verId', 'V1');
     }
 
+    public function test_returns_document_list_for_old_reg_no(): void
+    {
+        $this->seedCase('kinson', ['regNo' => '194901000013', 'oldRegNo' => '1756-V', 'companyName' => 'KINSON COMPANY SDN BHD', 'entityType' => 'company']);
+        $this->seedIdamanList('kinson', [
+            ['verId' => '3908491', 'formType' => '49', 'dateFiler' => '2019-01-12'],
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->postJson('/get-image-list', ['regNo' => '1756-V']);
+
+        $response->assertOk();
+        $response->assertJsonPath('getImageView.documentInfos.documentInfos.0.verId', '3908491');
+    }
+
     public function test_returns_empty_document_list_when_list_json_is_empty_array(): void
     {
         $this->seedCase('acme-co', ['regNo' => '123456-A', 'companyName' => 'Acme Sdn Bhd', 'entityType' => 'company']);

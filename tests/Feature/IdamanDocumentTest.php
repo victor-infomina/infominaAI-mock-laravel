@@ -52,6 +52,19 @@ class IdamanDocumentTest extends TestCase
         $this->assertSame('raw-tiff-bytes', base64_decode($response->json('getImage.docContent')));
     }
 
+    public function test_returns_document_for_old_reg_no(): void
+    {
+        $this->seedCaseWithDocument('kinson', '194901000013', '3908491', 'raw-tiff-bytes');
+        $meta = json_decode(file_get_contents($this->casesPath.'/kinson/meta.json'), true);
+        file_put_contents($this->casesPath.'/kinson/meta.json', json_encode($meta + ['oldRegNo' => '1756-V']));
+
+        $response = $this->withHeaders($this->authHeaders())
+            ->postJson('/get-image', ['regNo' => '1756-V', 'verId' => '3908491']);
+
+        $response->assertOk();
+        $response->assertJsonPath('getImage.docContent', base64_encode('raw-tiff-bytes'));
+    }
+
     public function test_returns_error_msg_when_reg_no_does_not_match(): void
     {
         $response = $this->withHeaders($this->authHeaders())

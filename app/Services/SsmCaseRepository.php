@@ -47,63 +47,94 @@ class SsmCaseRepository
         return ['key' => $caseKey, 'meta' => $meta, 'path' => $path];
     }
 
+    /**
+     * get-search-entity and the profile endpoints: `regNo` may be the new or the old
+     * number (see matchRegNo); `entityType` accepts SSM's own vocabulary too.
+     */
     public function findByRegNo(string $regNo, string $entityType): ?array
     {
         $entityType = self::normalizeEntityType($entityType);
 
-        foreach ($this->all() as $case) {
-            if (
-                strcasecmp($case['meta']['regNo'] ?? '', $regNo) === 0
-                && self::normalizeEntityType($case['meta']['entityType'] ?? '') === $entityType
-            ) {
-                return $case;
-            }
-        }
-
-        return null;
+        return $this->matchRegNo(
+            $regNo,
+            fn (array $case) => self::normalizeEntityType((string) ($case['meta']['entityType'] ?? '')) === $entityType,
+        );
     }
 
+    /** get-image-list and get-image: new or old number, any entity type. */
     public function findByRegNoAny(string $regNo): ?array
     {
-        foreach ($this->all() as $case) {
-            if (strcasecmp($case['meta']['regNo'] ?? '', $regNo) === 0) {
-                return $case;
-            }
-        }
-
-        return null;
+        return $this->matchRegNo($regNo, fn () => true);
     }
 
     /**
-     * CIDP get-status-entity lookup: `regNo` may be the case's meta.json number or the
-     * old-format number from its profile, and `entityType` (meta.json vocabulary, or null
-     * for any) only narrows the match. meta.json is the identity of record even when the
-     * saved profile belongs to another entity, so meta numbers are tried first and
-     * profiles are only opened when no meta number matches.
+     * CIDP get-status-entity lookup: new or old number, and `entityType` (meta.json
+     * vocabulary, or null for any) only narrows the match.
      */
     public function findForStatus(string $regNo, ?string $entityType): ?array
     {
-        $regNo = trim($regNo);
-        $candidates = array_values(array_filter(
-            $this->all(),
+        return $this->matchRegNo(
+            $regNo,
             fn (array $case) => $entityType === null || ($case['meta']['entityType'] ?? '') === $entityType,
-        ));
+        );
+    }
 
-        foreach ($candidates as $case) {
-            if (strcasecmp(trim((string) ($case['meta']['regNo'] ?? '')), $regNo) === 0) {
-                return $case;
+    /**
+     * The case's old-format number: meta.json `oldRegNo` when set, otherwise the one
+     * derived from its profile; '' when neither is known.
+     */
+    public function oldRegNo(array $case): string
+    {
+        $metaOld = $case['meta']['oldRegNo'] ?? null;
+
+        if (is_string($metaOld) && trim($metaOld) !== '') {
+            return trim($metaOld);
+        }
+
+        return SsmEntityStatus::oldRegNo((string) ($case['meta']['entityType'] ?? ''), $this->profile($case));
+    }
+
+    /**
+     * meta.json is the identity of record even when the saved profile belongs to
+     * another entity, so meta numbers (regNo, then oldRegNo) are tried across all
+     * cases first, and profiles are only opened when no meta number matches.
+     */
+    private function matchRegNo(string $regNo, callable $filter): ?array
+    {
+        $regNo = trim($regNo);
+
+        if ($regNo === '') {
+            return null;
+        }
+
+        $candidates = array_values(array_filter($this->all(), $filter));
+
+        foreach (['regNo', 'oldRegNo'] as $field) {
+            foreach ($candidates as $case) {
+                if (self::sameRegNo($case['meta'][$field] ?? null, $regNo)) {
+                    return $case;
+                }
             }
         }
 
         foreach ($candidates as $case) {
-            $oldRegNo = SsmEntityStatus::oldRegNo((string) ($case['meta']['entityType'] ?? ''), $this->profile($case));
+            $fromProfile = SsmEntityStatus::oldRegNo((string) ($case['meta']['entityType'] ?? ''), $this->profile($case));
 
-            if ($oldRegNo !== '' && strcasecmp($oldRegNo, $regNo) === 0) {
+            if (self::sameRegNo($fromProfile, $regNo)) {
                 return $case;
             }
         }
 
         return null;
+    }
+
+    private static function sameRegNo(mixed $candidate, string $regNo): bool
+    {
+        if (! is_string($candidate) || trim($candidate) === '') {
+            return false;
+        }
+
+        return strcasecmp(trim($candidate), $regNo) === 0;
     }
 
     /** The case's decoded profile JSON for its entity type, or null if absent/unreadable. */
